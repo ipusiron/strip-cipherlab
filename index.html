@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Strip CipherLab</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <header>
+    <h1>Strip CipherLab</h1>
+    <p class="subtitle">ストリップ暗号の仕組みを視覚的に学べる対話型教育ツール</p>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="build">ストリップ作成</button>
+    <button class="tab-btn" data-tab="frame">ストリップ設定</button>
+    <button class="tab-btn" data-tab="enc">暗号化</button>
+    <button class="tab-btn" data-tab="dec">復号</button>
+    <button class="tab-btn" data-tab="study">座学</button>
+  </nav>
+
+  <main>
+    <!-- ストリップ作成 -->
+    <section id="build" class="tab-panel active">
+      <div class="build-layout">
+        <!-- 上部の生成・編集エリア -->
+        <div class="build-top-row">
+          <!-- 生成設定エリア -->
+          <div class="card generation-settings">
+            <h2>ストリップ生成</h2>
+            <div class="row">
+              <label>本数:</label>
+              <input id="genCount" type="number" min="1" max="50" value="10" />
+              <button id="btnGenRandom" class="primary">ランダム生成</button>
+            </div>
+            <div class="row">
+              <label>キーワード（置換アルファベット作成用）:</label>
+              <input id="keywordAlpha" type="text" placeholder="例: KEYWORD" />
+              <button id="btnGenKeyword" title="キーワード→置換アルファベット">キーワード生成</button>
+            </div>
+            <div class="note">
+              ・ランダム生成は A–Z の乱列を作成します。<br/>
+              ・キーワード生成は「キーワード＋残りの未使用文字」で1本を作成（本数分、末尾に連番KEY1, KEY2…を付与して変化）。
+            </div>
+          </div>
+
+          <!-- 乱字列編集エリア -->
+          <div class="card alphabet-editing">
+            <h2>ストリップ生成のための乱字列（1行1本）</h2>
+            <textarea id="stripsText" rows="10" spellcheck="false"></textarea>
+            <div class="btn-row">
+              <button id="btnValidate">重複・欠落チェック</button>
+              <button id="btnApplyStrips" class="primary">ストリップを生成</button>
+            </div>
+            <div id="validateMsg" class="mono small dim"></div>
+          </div>
+        </div>
+
+        <!-- 実際のストリップ表示エリア -->
+        <div class="card actual-strips">
+          <h2>生成されたストリップ（52文字ずつ）</h2>
+          <p class="hint">各ストリップは26文字の乱字列を2回繰り返した52文字です</p>
+          <div id="actualStripsContainer" class="actual-strips-container">
+            <div class="no-strips-message">
+              上の設定からストリップを生成してください
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ストリップ設定 -->
+    <section id="frame" class="tab-panel">
+      <div class="frame-layout">
+        <!-- 詳細設定（折りたたみ可能） -->
+        <div class="card advanced-settings">
+          <h2 class="collapsible-header" onclick="toggleAdvancedSettings()">
+            <span>詳細設定</span>
+            <span id="advancedToggle" class="toggle-icon">▼</span>
+          </h2>
+          <div id="advancedContent" class="collapsible-content collapsed">
+            <div class="row">
+              <label>使用本数（左から）:</label>
+              <input id="useCount" type="number" min="1" value="10" />
+              <button id="btnUseFirst">先頭から採用</button>
+            </div>
+            <div class="row">
+              <label>鍵語（装着順の割当: アルファベット順／同字は左から若番）:</label>
+              <input id="frameKey" type="text" placeholder='例: The strip cipher（長さ＝使用本数推奨）' />
+              <button id="btnFrameByKey">鍵語から生成</button>
+            </div>
+            <div class="row">
+              <label>手動順序（カンマ区切りインデックス）:</label>
+              <input id="manualOrder" type="text" placeholder="例: 0,1,2,3,4,5,6,7,8,9" />
+              <button id="btnApplyOrder">順序を適用</button>
+            </div>
+            <div class="mono small">
+              現在の frameOrder: <span id="frameOrderView"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- メインのストリップ配置エリア -->
+        <div class="card main-strips">
+          <h2>ストリップ配置</h2>
+          <p class="hint">ストリップをドラッグして順序を変更できます</p>
+          <div id="offsetTable" class="strips-container"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 暗号化 -->
+    <section id="enc" class="tab-panel">
+      <div class="enc-simple-layout">
+        <div class="card plain-input-card">
+          <div class="plain-input-header">
+            <h2>平文</h2>
+            <div class="header-actions">
+              <button id="btnClearPlain" class="copy-button">クリア</button>
+            </div>
+          </div>
+          <textarea id="plainText" rows="1" placeholder="平文を入力（ストリップ数まで対応）"></textarea>
+          <div id="plainTextWarnings" class="warnings"></div>
+        </div>
+
+        <div class="card cipher-output-card">
+          <div class="cipher-output-header">
+            <h2>暗号文</h2>
+            <button id="btnCopyCipher" class="copy-button">コピー</button>
+          </div>
+          <div class="textarea-container">
+            <textarea id="cipherText" rows="1" readonly placeholder="暗号文がここに表示されます"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="card enc-strips">
+        <div class="enc-strips-header">
+          <h2>使用中のストリップ配置</h2>
+          <div class="cipher-line-controls-header">
+            <span class="cipher-offset-label">段差: +<span id="cipherOffsetValue">1</span></span>
+            <button id="cipherUpBtn" class="cipher-control-btn">↑</button>
+            <button id="cipherDownBtn" class="cipher-control-btn">↓</button>
+          </div>
+        </div>
+        <div id="encStripsDisplay" class="enc-strips-container">
+          <div class="no-strips-message">
+            ストリップ設定タブでストリップを配置してください
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 復号 -->
+    <section id="dec" class="tab-panel">
+      <div class="enc-simple-layout">
+        <div class="card cipher-input-card">
+          <div class="cipher-input-header">
+            <h2>暗号文</h2>
+            <div class="header-actions">
+              <button id="btnSyncCipherFromEnc" class="copy-button">同期</button>
+              <button id="btnClearCipherIn" class="copy-button">クリア</button>
+            </div>
+          </div>
+          <textarea id="cipherIn" rows="1" placeholder="暗号文を入力（スペースや改行は無視）"></textarea>
+        </div>
+
+        <div class="card cipher-output-card">
+          <div class="cipher-output-header">
+            <h2>平文（候補）</h2>
+            <button id="btnCopyPlain" class="copy-button">コピー</button>
+          </div>
+          <div class="textarea-container">
+            <textarea id="plainOut" rows="1" readonly placeholder="段差を操作して可読な平文を探します"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="card enc-strips">
+        <div class="enc-strips-header">
+          <h2>使用中のストリップ配置（復号）</h2>
+          <div class="cipher-line-controls-header">
+            <span class="cipher-offset-label">段差: <span id="decCipherOffsetValue">-1</span></span>
+            <button id="decCipherUpBtn" class="cipher-control-btn">↑</button>
+            <button id="decCipherDownBtn" class="cipher-control-btn">↓</button>
+          </div>
+        </div>
+        <div id="decStripsDisplay" class="enc-strips-container">
+          <div class="no-strips-message">
+            暗号文を入力してください
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- 座学 -->
+    <section id="study" class="tab-panel">
+      <article class="card">
+        <h2>概要</h2>
+        <p>ストリップ暗号は、ランダム順のアルファベットを印字した帯（ストリップ）を多数並べ、平文行とは別の行を暗号文として読み出す換字式暗号です。</p>
+        <h3>重要ポイント</h3>
+        <ul>
+          <li>段差（行選択）を固定すると、その分だけ脆弱になる。毎回ランダムまたは事前規則で変化させる。</li>
+          <li>ストリップは環状ではない前提のため、26文字列を「縦に2回繰り返し」扱いにすることで端で止まらず合わせられる。</li>
+          <li>鍵語による装着順（アルファベット順割当／同字は左から若番）は一例。他の割当法もありえる。</li>
+        </ul>
+      </article>
+    </section>
+
+  </main>
+
+  <footer>
+    <div class="footer">
+      🔗 GitHubリポジトリはこちら（ <a href="https://github.com/ipusiron/strip-cipherlab" target="_blank">ipusiron/strip-cipherlab</a> ）
+    </div>
+  </footer>
+
+  <script src="./script.js"></script>
+</body>
+</html>
