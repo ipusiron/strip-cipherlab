@@ -9,85 +9,73 @@ Strip CipherLab is an educational web tool for learning about strip cipher crypt
 ## Architecture
 
 ### Files Structure
-- `index.html` - Single-page application with tabbed interface (ストリップ作成, フレーム設定, 暗号化, 復号, 可視化プレイヤー, 座学, インポート/エクスポート)
-- `script.js` - Core cipher logic and UI management, organized by sections:
-  - State management (lines 12-31)
-  - Utility functions (lines 33-86)
-  - Strip cipher algorithm implementation
-  - Tab navigation and UI event handlers
-  - Import/export JSON functionality
+- `index.html` - Single-page application with tabbed interface (ストリップ作成, フレーム設定, 暗号化, 復号, 座学)
+- `script.js` - Core cipher logic and UI management (~1280 lines)
 - `style.css` - Styling with CSS Grid layout for responsive panels
-- `data/` - Sample JSON files for stripsets, frames, and sessions
 
 ### Key Data Structures
 
-**State Object (global):**
+**State Object (global, lines 12-18):**
 ```javascript
-{
-  strips: [],           // Array of 26-character alphabets
-  frameOrder: [],       // Order indices for strips
-  baseRowIndex: 0,      // Reference row index
-  offsets: {},          // Row offsets (0-25)
-  ijMerge: false,       // I/J merge flag
-  grouping: 5,          // Output grouping size
-  nonalpha: "drop"      // Non-alpha handling
-}
+const state = {
+  strips: [],           // Array of 26-character alphabets (e.g., "QWERTY...")
+  frameOrder: [],       // Indices into strips array for frame ordering [0,1,2,...]
+  cipherRowGapEnc: 1,   // Gap offset for encryption tab (1-25)
+  cipherRowGapDec: 1,   // Gap offset for decryption tab (1-25)
+};
 ```
 
 ### Cipher Algorithm
 
-The implementation follows this flow:
-1. **Encryption**: Plain text → Find column in base row → Apply row key → Apply shift key → Get cipher character
-2. **Decryption**: Cipher text → Reverse shift → Find in target row → Map to base row → Get plain character
+The strip cipher implementation:
+1. **Encryption** (`simpleEncrypt`, line 292): For each plaintext char, find its position in the corresponding strip, add the gap offset (mod 26), return the character at that position
+2. **Decryption** (`simpleDecrypt`, line 339): Reverse of encryption - subtract the gap offset (mod 26)
 
-Key functions use modular arithmetic with 26-letter alphabet. Row keys and shift keys cycle through their patterns.
+Key constants:
+- `CHAR_HEIGHT = 24` (line 106) - pixel height per character in visualization
+- `BASELINE_ROW_INDEX_ENC = 13` (line 107) - baseline row for encryption view
+- `BASELINE_ROW_INDEX_DEC = 39` (line 108) - baseline row for decryption view
 
 ## Development Commands
 
 This is a static site with no build process:
 
 ```bash
-# Run local development server (if Python installed)
-python -m http.server 8000
-
-# Or with Node.js http-server (if installed globally)
-http-server
-
 # Open directly in browser
 start index.html  # Windows
 open index.html   # macOS
+
+# Or run local server
+python -m http.server 8000
 ```
 
 ## Testing Approach
 
-No automated tests exist. Manual testing via browser console:
-- Test cipher functions: `encryptWithKeys()`, `decryptWithKeys()`
-- Validate strips: Check for 26 unique characters
-- Test import/export with sample JSON files in `data/`
+No automated tests. Manual testing via browser console:
+- Test cipher: `simpleEncrypt("HELLO")`, `simpleDecrypt("CIPHER")`
+- Validate strips: Each must be exactly 26 unique A-Z characters
+- Check state: `console.log(state)`
 
 ## Important Implementation Notes
 
 - All strips must contain exactly 26 unique characters (A-Z)
 - Frame order uses 0-based indexing into strips array
-- Offsets wrap around using modulo 26
-- Row keys and shift keys are converted from letters to numbers (A=0, Z=25)
-- UI uses tab-based navigation with show/hide CSS classes
-- Drag-and-drop functionality for frame ordering visualization
+- Gap offsets wrap around using modulo 26
+- UI uses tab-based navigation with `.active` CSS class toggling
+- Drag-and-drop reordering in フレーム設定 tab (`setupStripDragAndDrop`, line 815)
 
 ## Common Tasks
 
 ### Adding New Strip Generation Methods
-Modify the strip generation section in `script.js` around lines 200-250. Follow the pattern of existing `randPermutationAlphabet()` and `keyedAlphabet()` functions.
+Add functions near `randPermutationAlphabet()` (line 24) and `keyedAlphabet()` (line 34). Both return 26-character strings.
 
 ### Modifying Cipher Algorithm
-Core cipher logic is in `encryptWithKeys()` and `decryptWithKeys()` functions. These handle the mathematical transformations using row/shift keys.
+Core logic in `simpleEncrypt()` (line 292) and `simpleDecrypt()` (line 339).
 
 ### Updating UI Components
-Tab panels are defined in `index.html` with corresponding event handlers in `script.js`. Each tab has an id matching its data-tab attribute.
+Tab panels defined in `index.html` with `data-tab` attributes. Event handlers in `init*Tab()` functions (lines 899-1251).
 
 ## GitHub Pages Deployment
 
-The site is configured for GitHub Pages with:
-- `.nojekyll` file to bypass Jekyll processing
-- Direct serving of static files from repository root
+- `.nojekyll` file bypasses Jekyll processing
 - Demo URL: https://ipusiron.github.io/strip-cipherlab/

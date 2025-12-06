@@ -1,11 +1,36 @@
 <!--
 ---
-title: Strip CipherLab
-category: classical-cryptography
+id: day071
+slug: strip-cipherlab
+
+title: "Strip CipherLab"
+
+subtitle_ja: "ストリップ暗号の構造と考え方を直感的に学ぶ教育ツール"
+subtitle_en: "Interactive educational tool for understanding strip cipher structure"
+
+description_ja: "ストリップ生成、フレーム設定、暗号化、復号という一連の手順を通じて、ストリップ暗号の構造と考え方を直感的に理解できるWebツールです。"
+description_en: "A web tool to grasp the strip cipher's structure through interactive visualization: generate strips, configure frame ordering, then encrypt and decrypt step-by-step."
+
+category_ja:
+  - 古典暗号
+  - 換字式暗号
+category_en:
+  - Classical Cryptography
+  - Substitution Cipher
+
 difficulty: 1
-description: Interactive web tool to grasp the strip cipher’s structure: generate strips, set selection/placement, then encrypt and decrypt step-by-step.
-tags: [strip-cipher, classical-crypto, education, visualization, javascript]
-demo: https://ipusiron.github.io/strip-cipherlab/
+
+tags:
+  - strip-cipher
+  - classical-crypto
+  - education
+  - visualization
+  - javascript
+
+repo_url: "https://github.com/ipusiron/strip-cipherlab"
+demo_url: "https://ipusiron.github.io/strip-cipherlab/"
+
+hub: true
 ---
 -->
 
