@@ -4,78 +4,63 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Strip CipherLab is an educational web tool for learning about strip cipher cryptography through interactive visualization. It's a static HTML/CSS/JavaScript application that runs entirely in the browser.
+Strip CipherLab is an educational web tool for learning the strip cipher (M-138-A style) through interactive visualization. It is a static HTML/CSS/JavaScript application that runs entirely in the browser (no build step, no dependencies, works from `file://`).
 
 ## Architecture
 
-### Files Structure
-- `index.html` - Single-page application with tabbed interface (ストリップ作成, フレーム設定, 暗号化, 復号, 座学)
-- `script.js` - Core cipher logic and UI management (~1280 lines)
-- `style.css` - Styling with CSS Grid layout for responsive panels
+### Files
 
-### Key Data Structures
+- `index.html` - Single page with five tabs (ストリップ作成, ストリップ初期設定, 暗号化, 復号, 座学). Meta CSP is `'self'` only: no inline scripts, inline event handlers, or `style` attributes.
+- `js/strip-core.js` - Pure logic (no DOM), exposed as `globalThis.StripCore`. Normalization, strip checks, keyword ranking, encrypt/decrypt, groups, the 26-row window, random strips (`crypto.getRandomValues`, rejection sampling) and passphrase strips (FNV-1a 32 + mulberry32 + Fisher–Yates).
+- `js/messages.js` - UI strings used by `script.js` (`StripMessages.t(lang, key, params)`). Only `ja` for now; keep JS string literals free of Japanese (tested).
+- `script.js` - DOM handling only: state, rendering, events.
+- `style.css` - Styles. Colors are CSS variables in `:root` (contrast tested).
 
-**State Object (global, lines 12-18):**
+### State (`script.js`)
+
 ```javascript
 const state = {
-  strips: [],           // Array of 26-character alphabets (e.g., "QWERTY...")
-  frameOrder: [],       // Indices into strips array for frame ordering [0,1,2,...]
-  cipherRowGapEnc: 1,   // Gap offset for encryption tab (1-25)
-  cipherRowGapDec: 1,   // Gap offset for decryption tab (1-25)
+  strips: [],          // 26-letter alphabets
+  stripsVersion: 0,    // bumped when strips are replaced (window rebuild key)
+  frameOrder: [],      // strip indices (0-based) left to right; shown 1-based in the UI
+  cipherRowGapEnc: 1,  // 1..25
+  cipherRowGapDec: 1,  // 1..25
+  encGroup: 0,         // group shown in the encryption window
+  decGroup: 0,         // group shown in the decryption window
 };
 ```
 
-### Cipher Algorithm
+- Every change goes through `setStrips()` / `setOrder()` / `renderEnc()` / `renderDec()`, which re-render all outputs (no stale results).
+- `setStrips()` resets the frame order to all strips from the first one. Invalid strip text is rejected (nothing changes).
+- Keyword order: the keyword length becomes the number of strips used; a keyword longer than the strip count is rejected.
 
-The strip cipher implementation:
-1. **Encryption** (`simpleEncrypt`, line 292): For each plaintext char, find its position in the corresponding strip, add the gap offset (mod 26), return the character at that position
-2. **Decryption** (`simpleDecrypt`, line 339): Reverse of encryption - subtract the gap offset (mod 26)
+### Cipher model
 
-Key constants:
-- `CHAR_HEIGHT = 24` (line 106) - pixel height per character in visualization
-- `BASELINE_ROW_INDEX_ENC = 13` (line 107) - baseline row for encryption view
-- `BASELINE_ROW_INDEX_DEC = 39` (line 108) - baseline row for decryption view
+- Encrypt: group the letters by r (= `frameOrder.length`); letter i uses strip `frameOrder[i % r]`; output the letter `gap` rows below (`(pos + gap) % 26`). Decrypt subtracts.
+- `gaps` in the core may be a number (same for all groups) or an array per group. The UI currently uses one gap for all groups.
+- Window: `StripCore.windowColumns(groupLetters, strips, order, mode)` gives each column's `offset` into the doubled (52-letter) strip. `enc` puts the group on the top row (row k = gap +k); `dec` puts it on the bottom row (row 25-k = gap -k). The UI slides the tape with the CSS variable `--offset` and never measures layout.
 
 ## Development Commands
 
-This is a static site with no build process:
-
 ```bash
-# Open directly in browser
-start index.html  # Windows
-open index.html   # macOS
+# Run tests (Node.js 22+, no dependencies)
+npm test
 
-# Or run local server
+# Open directly in a browser, or serve locally
 python -m http.server 8000
 ```
 
-## Testing Approach
+## Testing
 
-No automated tests. Manual testing via browser console:
-- Test cipher: `simpleEncrypt("HELLO")`, `simpleDecrypt("CIPHER")`
-- Validate strips: Each must be exactly 26 unique A-Z characters
-- Check state: `console.log(state)`
+- `test/core.test.js` - known answers (checked against an independent Python reference), round trips, boundaries
+- `test/readme.test.js` - README examples recomputed with the core, YAML metadata structure, directory tree, images, wording
+- `test/html.test.js` - CSP, ARIA tabs, ids used by `script.js`
+- `test/messages.test.js` - dictionary keys used by `script.js`, no Japanese literals in `script.js`
+- `test/contrast.test.js` - text/background pairs at 4.5:1 or more
+- `test/format.test.js` - line length, LF line endings
 
-## Important Implementation Notes
+## Notes
 
-- All strips must contain exactly 26 unique characters (A-Z)
-- Frame order uses 0-based indexing into strips array
-- Gap offsets wrap around using modulo 26
-- UI uses tab-based navigation with `.active` CSS class toggling
-- Drag-and-drop reordering in フレーム設定 tab (`setupStripDragAndDrop`, line 815)
-
-## Common Tasks
-
-### Adding New Strip Generation Methods
-Add functions near `randPermutationAlphabet()` (line 24) and `keyedAlphabet()` (line 34). Both return 26-character strings.
-
-### Modifying Cipher Algorithm
-Core logic in `simpleEncrypt()` (line 292) and `simpleDecrypt()` (line 339).
-
-### Updating UI Components
-Tab panels defined in `index.html` with `data-tab` attributes. Event handlers in `init*Tab()` functions (lines 899-1251).
-
-## GitHub Pages Deployment
-
-- `.nojekyll` file bypasses Jekyll processing
-- Demo URL: https://ipusiron.github.io/strip-cipherlab/
+- Keep the README YAML metadata structure (keys, order, HTML comment) as is; hackinglab.online reads it.
+- The README directory tree must list every file with a one-line description (tested).
+- GitHub Pages: `.nojekyll`, demo at https://ipusiron.github.io/strip-cipherlab/

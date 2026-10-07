@@ -430,6 +430,13 @@ main {
   flex-wrap: wrap;
 }
 
+/* 1行の入力欄はボタンと同じ行に並べ、狭いときだけ折り返す */
+.row input[type="text"] {
+  flex: 1 1 220px;
+  width: auto;
+  min-width: 0;
+}
+
 .row label {
   font-size: 13px;
   font-weight: 500;
@@ -620,7 +627,7 @@ button:disabled {
 }
 
 .strip-position {
-  padding: 4px 2px;
+  padding: 4px 0;
   text-align: center;
   font-size: 11px;
   color: var(--text-muted);
@@ -634,11 +641,12 @@ button:disabled {
 
 .strip-position-num {
   flex: 1 0 100%;
+  order: -1;
 }
 
 /* 初期設定タブの並べ替えボタン（ドラッグできない端末・キーボード用） */
 .move-btn {
-  width: 32px;
+  width: 28px;
   height: 32px;
   padding: 0;
   font-size: 12px;
@@ -920,7 +928,12 @@ input[type="checkbox"] {
 
 /* 初期設定タブのストリップは並べ替えボタンの分だけ広げる */
 .draggable-strip {
-  width: 72px;
+  width: 64px;
+}
+
+/* 初期設定タブは帯の間を詰めて、14本前後が1画面に入るように */
+#offsetTable.strips-container {
+  gap: 12px;
 }
 
 /* ---------- 26行の窓（暗号化・復号） ---------- */
