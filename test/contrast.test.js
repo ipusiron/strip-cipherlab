@@ -25,7 +25,7 @@ const PAIRS = [
   ["--text-muted", "--bg-secondary"], ["--text-muted", "--bg-primary"], ["--text-muted", "#f0f4f8"], ["--text-muted", "#f5f7fa"],
   ["#ffffff", "--accent-blue"], ["#ffffff", "--accent-blue-hover"], ["#ffffff", "--accent-green"],
   ["#ffffff", "--row-base"], ["#ffffff", "--row-gap"], ["#ffffff", "--text-secondary"], ["#ffffff", "--ok"],
-  ["--accent-blue-hover", "--bg-accent"],
+  ["--accent-blue-hover", "--bg-accent"], ["--accent-blue-hover", "--bg-secondary"],
 ];
 
 test("文字と下地の組はすべて 4.5:1 以上", () => {

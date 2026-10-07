@@ -46,6 +46,7 @@ Try it directly in your browser.
 - Offsets when encrypting: change them per group (as used in practice) or use one offset for all groups. Offsets per group are drawn with unbiased random numbers and can be re-drawn or chosen group by group
 - Candidates when decrypting: the 25 candidate rows of each group are ranked by an English-likeness score. Click a row to select it, or pick the top score for all groups at once (auto-pick). With one offset for all groups, the whole text is scored instead
 - Groups: text longer than the number of strips used is split into groups of that length, shown one group at a time
+- Check the period: put a long sample in the plaintext and pass the ciphertext to IC Learning Visualizer (Day047) to see whether a period appears when the offset is fixed (up to 20 strips used and 10,000 letters of ciphertext)
 - Study: a summary of how it works and what to watch for
 - English and Japanese: switch the screen language with the button at the top right
 
@@ -142,6 +143,24 @@ With one offset for all groups, choosing by the score of the whole text:
 
 The shorter the group, the more often a row that looks like English by chance ranks first. The tool shows a note for groups shorter than 8 letters. After the auto-pick, also check that each group reads well together with its neighbors.
 
+### The weakness of a fixed offset (checked with Day047)
+
+Under "Check the period" on the Encrypt tab, put the long sample (the opening paragraph of *A Tale of Two Cities*, 475 letters) in the plaintext and click "See the IC per period"; the ciphertext is passed to the key-length estimation of IC Learning Visualizer (Day047). The ciphertext travels after the `#` of the URL, so it is not sent to the server.
+
+With ten strips made from the passphrase STRIP, placed from the first, and every group enciphered at offset +7, the average IC of the columns per period is as follows (the same values that Day047 shows).
+
+| Period | Ciphertext | Plaintext |
+|---|---|---|
+| 1 (not split) | 0.0435 | 0.0741 |
+| 5 | 0.0593 | 0.0770 |
+| 10 | 0.0763 | 0.0763 |
+| 15 | 0.0636 | 0.0827 |
+| 20 | 0.0853 | 0.0853 |
+
+At periods 10 and 20, each column uses the same substitution table, so the IC of the columns returns to exactly the plaintext value (substitution does not change the letter counts). Day047 lists the key-length candidates as "5, 10, 15". The columns at period 5 mix the tables of two strips and are lower than the plaintext, but they pass Day047's threshold (0.058), so 5 comes first in increasing order. In the bar chart, 10 and 20 are the highest.
+
+In a ciphertext whose offsets change per group, the table of the same column changes from group to group, so no period from 2 to 20 reaches the threshold and Day047 gives no key-length candidate. If more than 20 strips are used, or the ciphertext is longer than 10,000 letters, Day047 cannot check it, so the button is disabled.
+
 ### Strip order (one keyword method: alphabetical numbering)
 
 Each letter of the keyword is numbered in alphabetical order (A→Z). When a letter appears more than once, the occurrences are numbered from the left.
@@ -213,7 +232,7 @@ In this tool, the number of letters in the keyword becomes the number of strips 
 - Security training: discuss "what fixing part of the key (the offset) turns the cipher into", "key distribution", and "the quality of random numbers" with a classical cipher. Strips from a passphrase are an example of key handling: they can be rebuilt, but anyone who guesses the passphrase can rebuild them too
 - Codebreaking practice: share only the strips and the strip order with friends, and send ciphertexts to each other without telling the offsets
 - Historical reading: reproduce the procedures described in Kahn's *The Codebreakers* or the TICOM reports at hand
-- Combining with other tools: paste a long ciphertext made with one offset into [IC Learning Visualizer](https://ipusiron.github.io/ic-learning-visualizer/) (Day047) to see the period equal to the number of strips used in the IC per period. You can compare it, as a periodic polyalphabetic substitution, with [Vigenere Cipher Tool](https://ipusiron.github.io/vigenere-cipher-tool/) (Day017), or compare keyword numbers with [Columnar CipherLab](https://ipusiron.github.io/columnar-cipherlab/) (Day043), which uses the same alphabetical numbering
+- Combining with other tools: with "See the IC per period" on the Encrypt tab, pass a long ciphertext made with one offset to [IC Learning Visualizer](https://ipusiron.github.io/ic-learning-visualizer/) (Day047) to see the period equal to the number of strips used in the IC per period. You can compare it, as a periodic polyalphabetic substitution, with [Vigenere Cipher Tool](https://ipusiron.github.io/vigenere-cipher-tool/) (Day017), or compare keyword numbers with [Columnar CipherLab](https://ipusiron.github.io/columnar-cipherlab/) (Day043), which uses the same alphabetical numbering
 
 The strip cipher is a classical cipher and cannot protect real communications. The author does not encourage misuse.
 
