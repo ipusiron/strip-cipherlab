@@ -1319,3 +1319,43 @@ button.fw-row-label.is-gap:hover {
 .cand-btn:focus-visible {
   outline-offset: -3px;
 }
+
+/* ヘッダー: タイトルと言語の切り替え */
+header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.header-text {
+  min-width: 0;
+}
+
+.lang-button {
+  flex: 0 0 auto;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 12px;
+  font-weight: 600;
+}
+
+.note p {
+  margin: 0;
+}
+
+.note p + p {
+  margin-top: 4px;
+}
+
+/* カードの見出しの行（見出し＋ボタン）は、狭い画面・長い英語で折り返す */
+.plain-input-card .plain-input-header,
+.cipher-input-card .cipher-input-header,
+.cipher-output-card .cipher-output-header {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.header-actions {
+  flex-wrap: wrap;
+}

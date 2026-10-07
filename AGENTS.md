@@ -4,12 +4,14 @@
 - `index.html` — Single-page UI and tab layout (meta CSP: `'self'` only).
 - `js/strip-core.js` — Pure cipher logic (no DOM): strips, keyword order, encrypt/decrypt, the 26-row window, random and passphrase strips.
 - `js/english-data.js` — Generated English letter-pair table (do not edit; run `node tools/build-english.mjs`).
-- `js/messages.js` — UI strings used by `script.js`.
+- `js/messages.js` — UI strings in Japanese and English (static texts use `html.*` keys with `data-i18n`).
+- `js/i18n.js` — Chooses the language and replaces static texts.
 - `script.js` — UI wiring (state, rendering, events).
 - `style.css` — Styles and the strip window.
 - `test/` — `node --test` suites (core, English scoring, README, HTML, messages, contrast, format).
 - `tools/` — Development scripts and Project Gutenberg excerpts (`build-english.mjs`, `evaluate.mjs`, `corpus/`). Not loaded by the page.
-- `assets/` — Screenshots used by the README.
+- `assets/` — Screenshots used by the READMEs (`assets/en/` for English).
+- `README.en.md` — English README (same headings as README.md).
 - `.nojekyll` — Enables GitHub Pages to serve files as-is.
 
 ## Build, Test, and Development Commands

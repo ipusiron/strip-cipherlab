@@ -13,7 +13,8 @@ Strip CipherLab is an educational web tool for learning the strip cipher (M-138-
 - `index.html` - Single page with five tabs (ストリップ作成, ストリップ初期設定, 暗号化, 復号, 座学). Meta CSP is `'self'` only: no inline scripts, inline event handlers, or `style` attributes.
 - `js/strip-core.js` - Pure logic (no DOM), exposed as `globalThis.StripCore`. Normalization, strip checks, keyword ranking, encrypt/decrypt, groups, the 26-row window, random strips (`crypto.getRandomValues`, rejection sampling) and passphrase strips (FNV-1a 32 + mulberry32 + Fisher–Yates).
 - `js/english-data.js` - Generated table of English letter-pair log-likelihoods (`globalThis.StripEnglish`). Built by `tools/build-english.mjs` from `tools/corpus/train-pg1342.txt`; do not edit by hand.
-- `js/messages.js` - UI strings used by `script.js` (`StripMessages.t(lang, key, params)`). Only `ja` for now; keep JS string literals free of Japanese (tested).
+- `js/messages.js` - UI strings in Japanese and English (`StripMessages.t(lang, key, params)`). `html.*` keys are the static texts of index.html (`data-i18n` / `data-i18n-attr`); the Japanese values must equal the HTML (tested). Keep JS string literals free of Japanese (tested).
+- `js/i18n.js` - Language (`?lang=` → saved choice → browser language; non-Japanese means English) and replacement of static texts (`StripI18n`).
 - `script.js` - DOM handling only: state, rendering, events.
 - `style.css` - Styles. Colors are CSS variables in `:root` (contrast tested).
 
@@ -67,11 +68,13 @@ python -m http.server 8000
 - `test/readme.test.js` - README examples and the accuracy tables recomputed with the core / `tools/evaluate.mjs`, YAML metadata structure, directory tree, images, wording
 - `test/html.test.js` - CSP, ARIA tabs, ids used by `script.js`
 - `test/messages.test.js` - dictionary keys used by `script.js`, no Japanese literals in `script.js`
+- `test/i18n.test.js` - same keys and placeholders in both languages, no Japanese in English, HTML text equals the Japanese dictionary, initial language
 - `test/contrast.test.js` - text/background pairs at 4.5:1 or more
 - `test/format.test.js` - line length, LF line endings
 
 ## Notes
 
-- Keep the README YAML metadata structure (keys, order, HTML comment) as is; hackinglab.online reads it.
+- Keep the README YAML metadata structure (keys, order, HTML comment) as is; hackinglab.online reads it. The YAML is only in README.md.
+- README.en.md is a full translation with the same headings as README.md (tested). Screenshots: `assets/` (Japanese) and `assets/en/` (English).
 - The README directory tree must list every file with a one-line description (tested).
 - GitHub Pages: `.nojekyll`, demo at https://ipusiron.github.io/strip-cipherlab/

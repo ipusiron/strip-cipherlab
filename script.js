@@ -4,11 +4,11 @@
  * - ストリップ初期設定（使用本数・鍵語・番号で装着順を決める）
  * - 暗号化／復号（26行の窓で、群ごとにストリップを滑らせて読む）
  * - 座学
- * 計算は js/strip-core.js（StripCore）、画面の文言は js/messages.js（StripMessages）
+ * 計算は js/strip-core.js（StripCore）、画面の文言は js/messages.js（StripMessages）、言語は js/i18n.js（StripI18n）
  * =============================== */
 
 const Core = globalThis.StripCore;
-const Messages = globalThis.StripMessages;
+const I18n = globalThis.StripI18n;
 
 // ---------- 状態 ----------
 const state = {
@@ -28,7 +28,7 @@ const state = {
 // ---------- ユーティリティ ----------
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
-const t = (key, params) => Messages.t("ja", key, params);
+const t = (key, params) => I18n.t(key, params);
 const stripLabel = (index) => "#" + (index + 1);
 const gapLabel = (g, mode) => (mode === "dec" ? "-" : "+") + g;
 
@@ -363,7 +363,7 @@ function renderWindow(container, groupLetters, mode, gap) {
   const columns = Core.windowColumns(groupLetters, state.strips, state.frameOrder, mode);
   const baseRow = mode === "dec" ? Core.MAX_GAP : 0;
   const gapRow = Core.rowOfGap(gap, mode);
-  const signature = state.stripsVersion + "|" + state.frameOrder.join(",") + "|" + mode;
+  const signature = [state.stripsVersion, state.frameOrder.join(","), mode, I18n.getLanguage()].join("|");
   let win = container.querySelector(".frame-window");
   if (!win || win.dataset.signature !== signature) {
     win = el("div", "frame-window " + mode);
@@ -695,8 +695,24 @@ function initDecTab() {
   });
 }
 
+// ---------- 言語 ----------
+function initLanguage() {
+  const nav = globalThis.navigator || {};
+  I18n.use(I18n.initialLanguage(globalThis.location.search, I18n.readSaved(), nav.languages || [nav.language]), document);
+  $("#langBtn").addEventListener("click", () => {
+    const next = I18n.getLanguage() === "ja" ? "en" : "ja";
+    I18n.save(next);
+    I18n.use(next, document);
+    // 前の言語で出した一時的な状態表示は消し、全タブを描き直す
+    for (const id of ["#genMsg", "#validateMsg", "#frameMsg"]) setMessage(id, "");
+    refreshActualStrips();
+    renderOrderViews();
+  });
+}
+
 // ---------- 初期ロード ----------
 function boot() {
+  initLanguage();
   initTabs();
   initBuildTab();
   initFrameTab();
