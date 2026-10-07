@@ -15,7 +15,9 @@ const state = {
   strips: [],                 // ["QWERTY...", ...] 26文字各
   stripsVersion: 0,           // ストリップを作り直すたびに増やす（窓を作り直す目印）
   frameOrder: [],             // 装着順（左→右）。ストリップの添字（0始まり。画面では1始まりの番号）
-  cipherRowGapEnc: 1,         // 暗号化タブ用 段差（1〜25）
+  cipherRowGapEnc: 1,         // 暗号化タブ用 段差（1〜25。「全部の群で同じ」のとき）
+  encGapMode: "group",        // 暗号化の段差の決め方: "group"（群ごと）か "fixed"（全部の群で同じ）
+  encGaps: [],                // 群ごとの段差（足りない分は乱数で足す）
   cipherRowGapDec: 1,         // 復号タブ用 段差（1〜25）
   encGroup: 0,                // 暗号化タブの窓に出している群（0始まり）
   decGroup: 0,                // 復号タブの窓に出している群（0始まり）
@@ -90,6 +92,7 @@ function setStrips(strips) {
   state.strips = strips;
   state.stripsVersion++;
   state.frameOrder = Core.firstOrder(strips.length);
+  state.encGaps = [];
   state.encGroup = 0;
   state.decGroup = 0;
   $("#useCount").value = String(strips.length);
@@ -100,6 +103,7 @@ function setStrips(strips) {
 
 function setOrder(order) {
   state.frameOrder = order;
+  state.encGaps = [];
   state.encGroup = 0;
   state.decGroup = 0;
   $("#useCount").value = String(order.length);
@@ -430,11 +434,23 @@ function groupAtCaret(textarea, r) {
 const clampGroup = (index, count) => Math.max(0, Math.min(index, count - 1));
 
 // ---------- 暗号化タブ ----------
+// 群ごとの段差を、群の数まで乱数で足す（今ある値は変えない）
+function ensureEncGaps(count) {
+  if (state.encGaps.length < count) state.encGaps = state.encGaps.concat(Core.randomGaps(count - state.encGaps.length, Core.cryptoBytes));
+}
+
+// 群 i の段差（決め方に従う）
+const encGapOf = (i) => (state.encGapMode === "group" ? state.encGaps[i] : state.cipherRowGapEnc);
+
 function renderEnc() {
   const raw = $("#plainText").value;
   const letters = Core.lettersOnly(raw);
   const r = state.frameOrder.length;
-  const gap = state.cipherRowGapEnc;
+  const groups = r ? Core.splitGroups(letters, r) : [];
+  const perGroup = state.encGapMode === "group";
+  ensureEncGaps(Math.max(groups.length, 1));
+  state.encGroup = clampGroup(state.encGroup, groups.length);
+  const gap = encGapOf(state.encGroup);
   const warnings = [];
   const dropped = Core.droppedChars(raw);
   if (dropped.length) {
@@ -445,9 +461,10 @@ function renderEnc() {
     warnings.push({ kind: "warn", text: t("common.noOrder") });
   } else {
     if (letters.length > r) {
-      warnings.push({ kind: "info", text: t("enc.groups", { length: letters.length, r, groups: Math.ceil(letters.length / r), gap: gapLabel(gap, "enc") }) });
+      const params = { length: letters.length, r, groups: groups.length, gap: gapLabel(gap, "enc") };
+      warnings.push({ kind: "info", text: t(perGroup ? "enc.groupsPerGroup" : "enc.groupsFixed", params) });
     }
-    cipher = Core.encrypt(letters, state.strips, state.frameOrder, gap);
+    cipher = Core.encrypt(letters, state.strips, state.frameOrder, perGroup ? state.encGaps : state.cipherRowGapEnc);
   }
   renderWarnings($("#plainTextWarnings"), warnings);
   $("#cipherText").value = cipher;
@@ -455,9 +472,12 @@ function renderEnc() {
   $("#cipherOffsetValue").textContent = gapLabel(gap, "enc");
   $("#cipherUpBtn").disabled = gap <= 1;
   $("#cipherDownBtn").disabled = gap >= Core.MAX_GAP;
+  $("#btnRerollGaps").hidden = !perGroup;
+  // 群ごとの段差の控え（送り手のメモ。受け手には知らせない）
+  $("#encGapList").textContent = perGroup && groups.length
+    ? t("enc.gapList", { list: groups.map((_, i) => gapLabel(state.encGaps[i], "enc")).join(" ") })
+    : "";
 
-  const groups = r ? Core.splitGroups(letters, r) : [];
-  state.encGroup = clampGroup(state.encGroup, groups.length);
   const group = groups[state.encGroup] || "";
   const text = group
     ? t("enc.groupText", { plain: group, cipher: Core.splitGroups(cipher, r)[state.encGroup], gap: gapLabel(gap, "enc") })
@@ -466,8 +486,15 @@ function renderEnc() {
   renderWindow($("#encStripsDisplay"), group, "enc", gap);
 }
 
+// 段差を変える（群ごとのときは窓に出している群の段差だけ）
 function setEncGap(g) {
-  state.cipherRowGapEnc = clampInt(g, 1, Core.MAX_GAP, 1);
+  const v = clampInt(g, 1, Core.MAX_GAP, 1);
+  if (state.encGapMode === "group") {
+    ensureEncGaps(state.encGroup + 1);
+    state.encGaps[state.encGroup] = v;
+  } else {
+    state.cipherRowGapEnc = v;
+  }
   renderEnc();
 }
 
@@ -487,8 +514,17 @@ function initEncTab() {
     renderEnc();
   });
 
-  $("#cipherUpBtn").addEventListener("click", () => setEncGap(state.cipherRowGapEnc - 1));
-  $("#cipherDownBtn").addEventListener("click", () => setEncGap(state.cipherRowGapEnc + 1));
+  $("#cipherUpBtn").addEventListener("click", () => setEncGap(encGapOf(state.encGroup) - 1));
+  $("#cipherDownBtn").addEventListener("click", () => setEncGap(encGapOf(state.encGroup) + 1));
+  $$("input[name=encGapMode]").forEach((radio) => radio.addEventListener("change", () => {
+    state.encGapMode = radio.value;
+    renderEnc();
+  }));
+  $("#btnRerollGaps").addEventListener("click", () => {
+    state.encGaps = [];
+    renderEnc();
+    showToast(t("toast.gapsRerolled"));
+  });
   $("#encGroupPrev").addEventListener("click", () => { state.encGroup--; renderEnc(); });
   $("#encGroupNext").addEventListener("click", () => { state.encGroup++; renderEnc(); });
   $("#encStripsDisplay").addEventListener("click", (e) => {

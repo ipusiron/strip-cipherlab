@@ -1179,3 +1179,49 @@ button.fw-row-label.is-gap:hover {
 .move-btn:focus-visible {
   outline-offset: -3px;
 }
+
+/* 段差の決め方（群ごと／全部の群で同じ） */
+.gap-mode {
+  min-inline-size: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin: 0 0 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.gap-mode legend {
+  padding: 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.gap-mode label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.gap-mode input[type="radio"] {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+}
+
+.gap-list {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.gap-list:empty {
+  display: none;
+}

@@ -137,6 +137,13 @@
             <button id="cipherDownBtn" type="button" class="cipher-control-btn" aria-label="暗号文の行を1段下へ（段差を1増やす）">▼</button>
           </div>
         </div>
+        <fieldset class="gap-mode">
+          <legend>段差の決め方</legend>
+          <label><input type="radio" name="encGapMode" value="group" checked /> 群ごとに変える（実際の運用）</label>
+          <label><input type="radio" name="encGapMode" value="fixed" /> 全部の群で同じ</label>
+          <button id="btnRerollGaps" type="button">段差を振り直す</button>
+        </fieldset>
+        <p id="encGapList" class="gap-list mono" aria-live="polite"></p>
         <div class="group-nav">
           <button id="encGroupPrev" type="button" class="group-btn" aria-label="前の群">◀</button>
           <span id="encGroupLabel" class="group-label"></span>

@@ -26,7 +26,7 @@ test("script.js の文字列リテラルに日本語がない（文言は辞書�
 });
 
 test("置き場所 {name} を埋める。ない値はそのまま残す", () => {
-  assert.equal(t("ja", "group.label", { n: 2, total: 3 }), "群 2 / 3");
+  assert.equal(t("ja", "group.label", { n: 2, total: 3 }), "群2/3");
   assert.equal(format("{a}-{b}", { a: 1 }), "1-{b}");
   assert.equal(t("ja", "no.such.key"), "no.such.key");
   for (const [k, v] of Object.entries(MESSAGES.ja)) assert.equal(typeof v, "string", k);
