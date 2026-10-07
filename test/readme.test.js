@@ -231,3 +231,49 @@ test("英語版: 計算例・装着順の例・評価の表を計算部と tools
   assert.equal(rowsF.length, Object.keys(f).length);
   for (const [, r, len, v] of rowsF) assert.equal(v, f[`${r}/${len}`].toFixed(1));
 });
+
+// 周期 k で分けた列の IC の平均（Day047 IC Learning Visualizer と同じ定義。2文字以上の列だけで平均する）
+function periodicIC(text, k) {
+  let sum = 0;
+  let cols = 0;
+  for (let i = 0; i < k; i++) {
+    let col = "";
+    for (let j = i; j < text.length; j += k) col += text[j];
+    if (col.length < 2) continue;
+    const counts = {};
+    for (const ch of col) counts[ch] = (counts[ch] || 0) + 1;
+    sum += Object.values(counts).reduce((a, n) => a + n * (n - 1), 0) / (col.length * (col.length - 1));
+    cols++;
+  }
+  return sum / cols;
+}
+
+test("段差を固定したときの弱さ: 周期ごとのICの表（日英）を見本の長文で再計算する", () => {
+  const script = read("script.js");
+  const sample = Function(`return ${script.match(/const SAMPLE_PARAGRAPH = ([\s\S]*?);\n/)[1]};`)();
+  const plain = C.lettersOnly(sample);
+  assert.equal(plain.length, 475);
+  assert.match(script, /const IC_MAX_PERIOD = 20;/);
+  assert.match(script, /const IC_MAX_TEXT = 10000;/);
+  const strips = C.passphraseStrips("STRIP", 10);
+  const order = C.firstOrder(10);
+  const cipher = C.encrypt(plain, strips, order, 7);
+  for (const [text, re] of [[readme, /^\| (\d+)(?:（分けない）)? \| (0\.\d{4}) \| (0\.\d{4}) \|$/gm],
+    [readmeEn, /^\| (\d+)(?: \(not split\))? \| (0\.\d{4}) \| (0\.\d{4}) \|$/gm]]) {
+    const rows = [...text.matchAll(re)];
+    assert.equal(rows.length, 5);
+    for (const [, k, c, p] of rows) {
+      assert.equal(periodicIC(cipher, Number(k)).toFixed(4), c, `cipher ${k}`);
+      assert.equal(periodicIC(plain, Number(k)).toFixed(4), p, `plain ${k}`);
+    }
+  }
+  // 周期10・20は平文とまったく同じ（列ごとに同じ換字表）
+  for (const k of [10, 20]) assert.equal(periodicIC(cipher, k), periodicIC(plain, k));
+  // 群ごとに段差を変えると、周期2〜20のどれも Day047 のしきい値 0.058 に届かない（決まった種の乱数で5回）
+  let seed = 20261007;
+  const bytes = (n) => Uint8Array.from({ length: n }, () => { seed = (Math.imul(seed, 1103515245) + 12345) >>> 0; return seed >>> 24; });
+  for (let t = 0; t < 5; t++) {
+    const per = C.encrypt(plain, strips, order, C.randomGaps(48, bytes));
+    for (let k = 2; k <= 20; k++) assert.ok(periodicIC(per, k) < 0.058, `trial ${t} period ${k}`);
+  }
+});
