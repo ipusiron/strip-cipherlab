@@ -109,7 +109,7 @@ h1 {
 
 .tab-btn:hover {
   background: var(--bg-accent);
-  color: var(--accent-blue);
+  color: var(--accent-blue-hover);
   transform: translateY(-1px);
   box-shadow: var(--shadow-md);
 }
@@ -1150,8 +1150,19 @@ button.fw-row-label.is-gap:hover {
     padding: 16px;
   }
 
+  /* タブは横スクロールでなく折り返して、全部見えるように */
+  .tabs {
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
+
   .enc-strips-header {
     flex-wrap: wrap;
     gap: 8px;
   }
+}
+
+/* 間の狭いボタンは、フォーカスの枠を内側に出して隣にかけない */
+.move-btn:focus-visible {
+  outline-offset: -3px;
 }
