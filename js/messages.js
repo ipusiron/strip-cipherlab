@@ -16,6 +16,7 @@
       "toast.cipherCleared": "暗号文をクリアしました",
       "toast.synced": "暗号化タブの暗号文を写しました",
       "toast.gapsRerolled": "群ごとの段差を振り直しました",
+      "toast.autoGaps": "点数が1位の段差を選びました",
 
       "build.noStrips": "上の設定からストリップを生成してください",
       "build.generated": "ランダムなストリップを{count}本作り、先頭から{count}本を装着順にしました。",
@@ -63,7 +64,16 @@
       "enc.groupEmpty": "平文を入力すると、ストリップが滑って平文の文字が最上段にそろいます。",
 
       "dec.dropped": "英字以外の文字（{chars}）は無視します。",
-      "dec.groupText": "暗号文{cipher} → 平文の候補{plain}（段差{gap}）",
+      "dec.groupText": "暗号文{cipher} → 平文の候補{plain}（段差{gap}、点数{score}、{rank}位）",
+      "dec.gapList": "選んだ段差：{list}",
+
+      "cand.titleEmpty": "候補の行",
+      "cand.titleGroup": "候補の行（群{n}、点数の高い順）",
+      "cand.titleFixed": "候補（全文を同じ段差で復号、点数の高い順）",
+      "cand.short": "この群は{n}文字と短いので、点数の1位が正しいとは限りません。前後の群とつなげて読んでください。",
+      "cand.rank": "{n}位",
+      "cand.noScore": "－",
+      "cand.pick": "段差{gap}の候補を選ぶ（{rank}位、点数{score}）",
       "dec.groupEmpty": "暗号文を入力すると、ストリップが滑って暗号文の文字が最下段にそろいます。",
     },
   };

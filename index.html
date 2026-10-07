@@ -188,14 +188,38 @@
             <button id="decCipherDownBtn" type="button" class="cipher-control-btn" aria-label="平文候補の行を1段下へ（段差を1減らす）">▼</button>
           </div>
         </div>
+        <fieldset class="gap-mode">
+          <legend>段差の決め方</legend>
+          <label><input type="radio" name="decGapMode" value="group" checked /> 群ごとに選ぶ</label>
+          <label><input type="radio" name="decGapMode" value="fixed" /> 全部の群で同じ</label>
+          <button id="btnAutoGaps" type="button" class="primary">点数1位を選ぶ（自動推定）</button>
+        </fieldset>
+        <p id="decGapList" class="gap-list mono" aria-live="polite"></p>
         <div class="group-nav">
           <button id="decGroupPrev" type="button" class="group-btn" aria-label="前の群">◀</button>
           <span id="decGroupLabel" class="group-label"></span>
           <button id="decGroupNext" type="button" class="group-btn" aria-label="次の群">▶</button>
           <span id="decGroupText" class="group-text mono" aria-live="polite"></span>
         </div>
-        <p class="hint">暗号文の文字が最下段にそろうようストリップを滑らせると、その上の25行が平文の候補（段差 -1〜-25）です。行を横に読み、読める行を探してください。</p>
-        <div id="decStripsDisplay" class="frame-window-wrap"></div>
+        <div class="dec-body">
+          <section class="cand-panel" aria-labelledby="candTitle">
+            <h3 id="candTitle">候補の行</h3>
+            <p class="hint">点数は、英語で隣り合う2文字の出やすさ（自然対数）の平均です。0に近いほど英語らしい行です。行を押すと、その段差を選びます。</p>
+            <div id="candNote" class="warnings" aria-live="polite"></div>
+            <div class="table-wrap">
+              <table class="cand-table">
+                <thead>
+                  <tr><th scope="col">順位</th><th scope="col">段差</th><th scope="col">候補</th><th scope="col">点数</th></tr>
+                </thead>
+                <tbody id="candBody"></tbody>
+              </table>
+            </div>
+          </section>
+          <div class="dec-window">
+            <p class="hint">暗号文の文字が最下段にそろうようストリップを滑らせると、その上の25行が平文の候補（段差 -1〜-25）です。行を横に読み、読める行を探してください。</p>
+            <div id="decStripsDisplay" class="frame-window-wrap"></div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -241,6 +265,7 @@
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script src="./js/strip-core.js"></script>
+  <script src="./js/english-data.js"></script>
   <script src="./js/messages.js"></script>
   <script src="./script.js"></script>
 </body>

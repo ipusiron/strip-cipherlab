@@ -25,7 +25,7 @@ test("インラインのイベントハンドラー・style 属性・インラ�
   assert.doesNotMatch(html, /\sstyle\s*=/i);
   const scripts = [...html.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/g)];
   for (const s of scripts) assert.equal(s[2].trim(), "", "inline script");
-  assert.deepEqual(scripts.map((s) => s[1].match(/src="([^"]+)"/)[1]), ["./js/strip-core.js", "./js/messages.js", "./script.js"]);
+  assert.deepEqual(scripts.map((s) => s[1].match(/src="([^"]+)"/)[1]), ["./js/strip-core.js", "./js/english-data.js", "./js/messages.js", "./script.js"]);
   // JS で style 属性・innerHTML を使わない（CSSOM の setProperty は CSP の対象外）
   assert.doesNotMatch(script, /setAttribute\(\s*["']style/);
   assert.doesNotMatch(script, /\.innerHTML\s*=/);

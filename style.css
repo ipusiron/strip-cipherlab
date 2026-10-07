@@ -1225,3 +1225,97 @@ button.fw-row-label.is-gap:hover {
 .gap-list:empty {
   display: none;
 }
+
+/* ---------- 復号の候補の表と窓の並び ---------- */
+.dec-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+
+@media (min-width: 961px) {
+  .dec-body {
+    grid-template-columns: minmax(0, 380px) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+.cand-panel h3 {
+  margin: 0 0 4px;
+  font-size: 15px;
+}
+
+.cand-panel .hint {
+  margin-bottom: 8px;
+}
+
+.table-wrap {
+  overflow-x: auto;
+  max-height: 640px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.cand-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.cand-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 6px 8px;
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.cand-table td {
+  padding: 2px 8px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.cand-table td.cand-text {
+  width: 100%;
+  white-space: normal;
+}
+
+.cand-table tr.is-selected td {
+  background: var(--info-bg);
+}
+
+.cand-btn {
+  width: 100%;
+  min-height: 32px;
+  padding: 4px 8px;
+  text-align: left;
+  font-size: 14px;
+  letter-spacing: 1px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  box-shadow: none;
+  border-color: transparent;
+  background: transparent;
+}
+
+.cand-btn:hover {
+  transform: none;
+  background: var(--bg-secondary);
+}
+
+.cand-btn[aria-pressed="true"] {
+  background: var(--row-gap);
+  border-color: var(--row-gap);
+  color: white;
+}
+
+.cand-btn:focus-visible {
+  outline-offset: -3px;
+}
