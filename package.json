@@ -1,0 +1,11 @@
+{
+  "name": "strip-cipherlab",
+  "version": "1.0.0",
+  "description": "Strip CipherLab — strip cipher (M-138-A style) learning tool",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test \"test/*.test.js\""
+  },
+  "license": "MIT"
+}
