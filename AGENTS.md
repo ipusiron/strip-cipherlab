@@ -3,10 +3,12 @@
 ## Project Structure & Module Organization
 - `index.html` — Single-page UI and tab layout (meta CSP: `'self'` only).
 - `js/strip-core.js` — Pure cipher logic (no DOM): strips, keyword order, encrypt/decrypt, the 26-row window, random and passphrase strips.
+- `js/english-data.js` — Generated English letter-pair table (do not edit; run `node tools/build-english.mjs`).
 - `js/messages.js` — UI strings used by `script.js`.
 - `script.js` — UI wiring (state, rendering, events).
 - `style.css` — Styles and the strip window.
-- `test/` — `node --test` suites (core, README, HTML, messages, contrast, format).
+- `test/` — `node --test` suites (core, English scoring, README, HTML, messages, contrast, format).
+- `tools/` — Development scripts and Project Gutenberg excerpts (`build-english.mjs`, `evaluate.mjs`, `corpus/`). Not loaded by the page.
 - `assets/` — Screenshots used by the README.
 - `.nojekyll` — Enables GitHub Pages to serve files as-is.
 
@@ -25,7 +27,7 @@
 ## Testing Guidelines
 - Add or update tests with every change; do not change expected values to make tests pass.
 - README examples are recomputed by `test/readme.test.js`; keep them in sync with the core.
-- Manual checks in the browser: generate strips (random / passphrase / manual), set the order (first N / keyword / numbers / drag / ◀ ▶), encrypt and decrypt while changing the gap and the group.
+- Manual checks in the browser: generate strips (random / passphrase / manual), set the order (first N / keyword / numbers / drag / ◀ ▶), encrypt with gaps per group or one gap, decrypt by picking candidates or the auto estimate, in both gap modes.
 
 ## Commit & Pull Request Guidelines
 - Commit messages: concise summary; add short scope if useful (e.g., `enc`, `ui`, `style`).
