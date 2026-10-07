@@ -63,6 +63,11 @@
       "enc.gapList": "群ごとの段差（送り手の控え。受け手には知らせない）：{list}",
       "enc.groupText": "平文{plain} → 暗号文{cipher}（段差{gap}）",
       "enc.groupEmpty": "平文を入力すると、ストリップが滑って平文の文字が最上段にそろいます。",
+      "ic.noCipher": "暗号文ができると、Day047へ渡せます。",
+      "ic.tooManyStrips": "使用本数が{max}本を超えています。Day047が調べる周期は{max}までです。",
+      "ic.tooLong": "暗号文が{max}字を超えています。Day047が受け取るのは{max}字までです。",
+      "ic.short": "暗号文が{n}字と短いので、周期が見えにくいことがあります（数百字が目安）。",
+      "ic.ready": "暗号文{n}字を渡します。棒グラフで周期{r}とその倍数が高いかを見てください。候補の一覧では、{r}の約数が先に並ぶことがあります。",
 
       "dec.dropped": "英字以外の文字（{chars}）は無視します。",
       "dec.groupText": "暗号文{cipher} → 平文の候補{plain}（段差{gap}、点数{score}、{rank}位）",
@@ -180,6 +185,10 @@
 
       "html.enc.plainPlaceholder": "平文を入力（英字だけを使います）",
       "html.enc.cipherPlaceholder": "暗号文がここに表示されます",
+      "html.enc.icTitle": "周期を確かめる（段差を固定したときの弱さ）",
+      "html.enc.icHint": "全部の群で同じ段差にした長い暗号文をIC Learning Visualizer（Day047）に渡すと、使用本数の周期とその倍数で、列のICが言語の値に戻ります。群ごとに段差を変えた暗号文と比べてください。",
+      "html.enc.btnSample": "見本の長文を平文に入れる",
+      "html.enc.linkIc": "周期ごとのICを見る（Day047）",
       "html.enc.upAria": "暗号文の行を1段上へ（段差を1減らす）",
       "html.enc.downAria": "暗号文の行を1段下へ（段差を1増やす）",
 
@@ -251,6 +260,11 @@
       "enc.gapList": "Offsets per group (sender's note, not sent to the receiver): {list}",
       "enc.groupText": "Plaintext {plain} → ciphertext {cipher} (offset {gap})",
       "enc.groupEmpty": "Type plaintext and the strips slide so its letters line up on the top row.",
+      "ic.noCipher": "Once there is a ciphertext, you can pass it to Day047.",
+      "ic.tooManyStrips": "More than {max} strips are used. Day047 checks periods up to {max}.",
+      "ic.tooLong": "The ciphertext is longer than {max} letters. Day047 accepts up to {max}.",
+      "ic.short": "The ciphertext is short (length {n}), so the period may be hard to see (a few hundred letters is a good guide).",
+      "ic.ready": "Passes the ciphertext (length {n}). In the bar chart, check that period {r} and its multiples are high. In the candidate list, a divisor of {r} may come first.",
 
       "dec.dropped": "Characters other than letters ({chars}) are ignored.",
       "dec.groupText": "Ciphertext {cipher} → candidate {plain} (offset {gap}, score {score}, rank {rank})",
@@ -368,6 +382,10 @@
 
       "html.enc.plainPlaceholder": "Enter plaintext (only letters A–Z are used)",
       "html.enc.cipherPlaceholder": "The ciphertext appears here",
+      "html.enc.icTitle": "Check the period (the weakness of a fixed offset)",
+      "html.enc.icHint": "Pass a long ciphertext made with one offset for all groups to IC Learning Visualizer (Day047): the IC of the columns returns to the language value at the period equal to the strips used and its multiples. Compare it with a ciphertext whose offsets change per group.",
+      "html.enc.btnSample": "Put a long sample in the plaintext",
+      "html.enc.linkIc": "See the IC per period (Day047)",
       "html.enc.upAria": "Move the cipher row up (offset -1)",
       "html.enc.downAria": "Move the cipher row down (offset +1)",
 

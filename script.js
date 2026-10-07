@@ -438,6 +438,42 @@ function groupAtCaret(textarea, r) {
 const clampGroup = (index, count) => Math.max(0, Math.min(index, count - 1));
 
 // ---------- 暗号化タブ ----------
+// 周期を確かめる: 暗号文を IC Learning Visualizer（Day047）へ #text= で渡す（# 以降はサーバーへ送られない）。
+// Day047 が調べる周期は最大20、受け取る文字列は10,000字まで
+const IC_URL = "https://ipusiron.github.io/ic-learning-visualizer/";
+const IC_MAX_PERIOD = 20;
+const IC_MAX_TEXT = 10000;
+const IC_SHORT_TEXT = 300;
+// 見本の長文: Charles Dickens『A Tale of Two Cities』（1859年、パブリックドメイン）の冒頭の段落
+const SAMPLE_PARAGRAPH = "It was the best of times, it was the worst of times, it was the age of wisdom, "
+  + "it was the age of foolishness, it was the epoch of belief, it was the epoch of incredulity, "
+  + "it was the season of Light, it was the season of Darkness, it was the spring of hope, "
+  + "it was the winter of despair, we had everything before us, we had nothing before us, "
+  + "we were all going direct to Heaven, we were all going direct the other way--in short, "
+  + "the period was so far like the present period, that some of its noisiest authorities insisted "
+  + "on its being received, for good or for evil, in the superlative degree of comparison only.";
+
+function renderIcLink(cipher, r) {
+  const link = $("#linkIc");
+  let note = "";
+  let ok = false;
+  if (!cipher) note = t("ic.noCipher");
+  else if (r > IC_MAX_PERIOD) note = t("ic.tooManyStrips", { max: IC_MAX_PERIOD });
+  else if (cipher.length > IC_MAX_TEXT) note = t("ic.tooLong", { max: IC_MAX_TEXT });
+  else {
+    ok = true;
+    note = cipher.length < IC_SHORT_TEXT ? t("ic.short", { n: cipher.length }) : t("ic.ready", { n: cipher.length, r });
+  }
+  if (ok) {
+    link.href = IC_URL + "#text=" + encodeURIComponent(cipher) + "&tab=advanced";
+    link.removeAttribute("aria-disabled");
+  } else {
+    link.removeAttribute("href");
+    link.setAttribute("aria-disabled", "true");
+  }
+  $("#icNote").textContent = note;
+}
+
 // 群ごとの段差を、群の数まで乱数で足す（今ある値は変えない）
 function ensureEncGaps(count) {
   if (state.encGaps.length < count) state.encGaps = state.encGaps.concat(Core.randomGaps(count - state.encGaps.length, Core.cryptoBytes));
@@ -488,6 +524,7 @@ function renderEnc() {
     : t("enc.groupEmpty");
   renderGroupNav("enc", groups.length, state.encGroup, text);
   renderWindow($("#encStripsDisplay"), group, "enc", gap);
+  renderIcLink(cipher, r);
 }
 
 // 段差を変える（群ごとのときは窓に出している群の段差だけ）
@@ -503,6 +540,11 @@ function setEncGap(g) {
 }
 
 function initEncTab() {
+  $("#btnSamplePlain").addEventListener("click", () => {
+    $("#plainText").value = SAMPLE_PARAGRAPH;
+    state.encGroup = 0;
+    renderEnc();
+  });
   $("#btnClearPlain").addEventListener("click", () => {
     $("#plainText").value = "";
     state.encGroup = 0;

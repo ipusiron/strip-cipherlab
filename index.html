@@ -128,6 +128,15 @@
             <button id="btnCopyCipher" type="button" class="copy-button" data-i18n="html.enc.btnCopy">コピー</button>
           </div>
           <textarea id="cipherText" rows="3" readonly placeholder="暗号文がここに表示されます" data-i18n-attr="placeholder:html.enc.cipherPlaceholder"></textarea>
+          <div class="ic-box">
+            <h3 data-i18n="html.enc.icTitle">周期を確かめる（段差を固定したときの弱さ）</h3>
+            <p class="hint" data-i18n="html.enc.icHint">全部の群で同じ段差にした長い暗号文をIC Learning Visualizer（Day047）に渡すと、使用本数の周期とその倍数で、列のICが言語の値に戻ります。群ごとに段差を変えた暗号文と比べてください。</p>
+            <div class="btn-row">
+              <button id="btnSamplePlain" type="button" data-i18n="html.enc.btnSample">見本の長文を平文に入れる</button>
+              <a id="linkIc" class="link-button" target="_blank" rel="noopener noreferrer" aria-disabled="true" data-i18n="html.enc.linkIc">周期ごとのICを見る（Day047）</a>
+            </div>
+            <p id="icNote" class="small dim" aria-live="polite"></p>
+          </div>
         </div>
       </div>
 

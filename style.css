@@ -1359,3 +1359,47 @@ header {
 .header-actions {
   flex-wrap: wrap;
 }
+
+/* 周期を確かめる（Day047 へ渡す） */
+.ic-box {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.ic-box h3 {
+  margin: 0 0 4px;
+  font-size: 15px;
+}
+
+.ic-box .hint {
+  margin-bottom: 0;
+}
+
+.link-button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 2px solid var(--accent-blue);
+  border-radius: 8px;
+  color: var(--accent-blue-hover);
+  background: var(--bg-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.link-button:hover {
+  background: var(--bg-accent);
+}
+
+.link-button[aria-disabled="true"] {
+  border-color: var(--border);
+  color: var(--text-secondary);
+  cursor: not-allowed;
+}
+
+#icNote:empty {
+  display: none;
+}
