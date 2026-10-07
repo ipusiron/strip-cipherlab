@@ -6,17 +6,28 @@
   --border: #e2e8f0;
   --border-hover: #3b82f6;
 
-  /* Text Colors */
+  /* Text Colors（白・淡い面の上で 4.5:1 以上。test/contrast.test.js で検証） */
   --text-primary: #1e293b;
-  --text-secondary: #64748b;
-  --text-muted: #94a3b8;
+  --text-secondary: #475569;
+  --text-muted: #5b6577;
 
   /* Accent Colors */
-  --accent-blue: #3b82f6;
-  --accent-blue-hover: #2563eb;
-  --accent-green: #10b981;
+  --accent-blue: #2563eb;
+  --accent-blue-hover: #1d4ed8;
+  --accent-green: #047857;
   --accent-yellow: #f59e0b;
   --accent-red: #ef4444;
+
+  /* 状態表示・窓の印 */
+  --warn-bg: #fef3c7;
+  --warn-border: #b45309;
+  --info-bg: #eff6ff;
+  --ok: #047857;
+  --ok-bg: #ecfdf5;
+  --error: #b91c1c;
+  --error-bg: #fef2f2;
+  --row-base: #b91c1c;
+  --row-gap: #1d4ed8;
 
   /* Shadows */
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
@@ -98,7 +109,7 @@ h1 {
 
 .tab-btn:hover {
   background: var(--bg-accent);
-  color: var(--accent-blue);
+  color: var(--accent-blue-hover);
   transform: translateY(-1px);
   box-shadow: var(--shadow-md);
 }
@@ -180,71 +191,15 @@ main {
   color: var(--text-secondary);
 }
 
-.enc-strips-container {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  justify-content: flex-start;
-  padding: 16px;
-  padding-left: 180px; /* ラベル分のスペースを確保 */
-  background: var(--bg-accent);
-  border-radius: 8px;
-  position: relative;
-  overflow: visible; /* 上方向へのはみ出しを許容して無駄な余白を避ける */
-}
-
-/* 復号タブでは枠からのはみ出しを抑制 */
-#decStripsDisplay.enc-strips-container {
-  overflow: hidden;
-}
-
-/* 基準線（平文） */
-/* 基準線（平文）- JavaScriptで動的生成するため無効化 */
-.enc-strips-container::before {
-  display: none;
-}
-
-.enc-strips-container::after {
-  display: none;
-}
-
-/* 暗号文ライン */
-.cipher-line {
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: var(--accent-blue);
-  z-index: 10;
-  pointer-events: none;
-  box-shadow: 0 0 4px rgba(59, 130, 246, 0.5);
-  cursor: ns-resize;
-}
-
-.cipher-line-label {
-  position: absolute;
-  right: 16px;
-  top: 50%;
-  transform: translateY(-50%);
-  background: var(--accent-blue);
-  color: white;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: bold;
-  z-index: 11;
-  pointer-events: none;
-  white-space: nowrap;
-}
-
 
 .cipher-control-btn {
   background: var(--accent-blue);
   color: white;
   border: none;
-  width: 24px;
-  height: 24px;
-  border-radius: 4px;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 8px;
   cursor: pointer;
   font-size: 14px;
   font-weight: bold;
@@ -268,15 +223,6 @@ main {
     grid-template-columns: 1fr;
     gap: 16px;
   }
-
-  .enc-strips-container {
-    gap: 12px;
-  }
-}
-
-/* Read-only encryption strips */
-.enc-strip-readonly {
-  pointer-events: none;
 }
 
 /* Ensure consistent character height for position calculations */
@@ -285,45 +231,57 @@ main {
   line-height: 24px !important;
 }
 
-/* Normalize rows in encryption view to avoid vertical jitter */
-.enc-strips-container .actual-strip-body {
-  padding: 0 !important;
-}
-
-.enc-strips-container .actual-strip-char {
-  margin: 0 !important;
-  border: 0 !important;
-}
-
-/* Highlight styles for active characters */
-.actual-strip-char.highlight-active {
-  background: var(--accent-yellow) !important;
-  color: var(--text-primary);
-  font-weight: bold;
-  border: 2px solid var(--accent-red);
-  box-shadow: 0 0 8px rgba(239, 68, 68, 0.3);
-}
-
-
-
 /* Warning messages */
 .warnings {
   margin-top: 8px;
   font-size: 14px;
 }
 
-.warning-message {
-  background: var(--accent-yellow);
+.warning-message,
+.info-message {
+  background: var(--warn-bg);
   color: var(--text-primary);
   padding: 6px 12px;
   border-radius: 4px;
   margin-bottom: 4px;
-  border-left: 4px solid var(--accent-red);
+  border-left: 4px solid var(--warn-border);
   font-weight: 500;
 }
 
-.warning-message:last-child {
+.info-message {
+  background: var(--info-bg);
+  border-left-color: var(--accent-blue);
+}
+
+.warning-message:last-child,
+.info-message:last-child {
   margin-bottom: 0;
+}
+
+/* 状態表示の欄（生成・検査・装着順の結果） */
+.msg {
+  white-space: pre-line;
+  font-size: 13px;
+  margin-top: 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--bg-accent);
+  border-left: 4px solid var(--accent-blue);
+  color: var(--text-primary);
+}
+
+.msg:empty {
+  display: none;
+}
+
+.msg.is-ok {
+  background: var(--ok-bg);
+  border-left-color: var(--ok);
+}
+
+.msg.is-error {
+  background: var(--error-bg);
+  border-left-color: var(--error);
 }
 
 /* Textarea with copy button */
@@ -431,14 +389,15 @@ main {
   font-weight: 500;
   box-shadow: var(--shadow-lg);
   z-index: 1000;
+  max-width: calc(100vw - 40px);
   opacity: 0;
-  transform: translateX(100px);
-  transition: all 0.3s ease;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
 }
 
 .toast.show {
   opacity: 1;
-  transform: translateX(0);
+  visibility: visible;
 }
 
 /* Card Design */
@@ -469,6 +428,13 @@ main {
   gap: 10px;
   margin: 12px 0;
   flex-wrap: wrap;
+}
+
+/* 1行の入力欄はボタンと同じ行に並べ、狭いときだけ折り返す */
+.row input[type="text"] {
+  flex: 1 1 220px;
+  width: auto;
+  min-width: 0;
 }
 
 .row label {
@@ -661,12 +627,35 @@ button:disabled {
 }
 
 .strip-position {
-  padding: 6px;
+  padding: 4px 0;
   text-align: center;
   font-size: 11px;
   color: var(--text-muted);
   background: var(--bg-primary);
   border-radius: 0 0 6px 6px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2px;
+}
+
+.strip-position-num {
+  flex: 1 0 100%;
+  order: -1;
+}
+
+/* 初期設定タブの並べ替えボタン（ドラッグできない端末・キーボード用） */
+.move-btn {
+  width: 28px;
+  height: 32px;
+  padding: 0;
+  font-size: 12px;
+  border-radius: 6px;
+  box-shadow: none;
+}
+
+.move-btn:hover {
+  transform: none;
 }
 
 /* Frame Layout */
@@ -676,49 +665,13 @@ button:disabled {
   gap: 20px;
 }
 
-.advanced-settings {
+.frame-settings {
   order: 1;
 }
 
 .main-strips {
   order: 2;
   flex: 1;
-}
-
-/* Collapsible Content */
-.collapsible-header {
-  cursor: pointer;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  user-select: none;
-  transition: background 0.2s ease;
-  margin: 0 0 12px;
-  padding: 8px 0;
-}
-
-.collapsible-header:hover {
-  color: var(--accent-blue);
-}
-
-.toggle-icon {
-  font-size: 12px;
-  transition: transform 0.2s ease;
-}
-
-.collapsible-content {
-  transition: max-height 0.3s ease, opacity 0.2s ease;
-  overflow: hidden;
-}
-
-.collapsible-content.collapsed {
-  max-height: 0;
-  opacity: 0;
-}
-
-.collapsible-content:not(.collapsed) {
-  max-height: 500px;
-  opacity: 1;
 }
 
 .hint {
@@ -936,19 +889,6 @@ button:disabled {
   background: var(--accent-green);
 }
 
-/* Validation Messages */
-#validateMsg, #encLog, #decLog {
-  padding: 8px 12px;
-  margin-top: 8px;
-  border-radius: 8px;
-  font-size: 13px;
-}
-
-#validateMsg:not(:empty) {
-  background: var(--bg-accent);
-  border-left: 4px solid var(--accent-blue);
-}
-
 /* Footer */
 .footer {
   padding: 24px 20px;
@@ -984,4 +924,258 @@ input[type="checkbox"] {
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
+}
+
+/* 初期設定タブのストリップは並べ替えボタンの分だけ広げる */
+.draggable-strip {
+  width: 64px;
+}
+
+/* 初期設定タブは帯の間を詰めて、14本前後が1画面に入るように */
+#offsetTable.strips-container {
+  gap: 12px;
+}
+
+/* ---------- 26行の窓（暗号化・復号） ---------- */
+.frame-window-wrap {
+  overflow-x: auto;
+  background: var(--bg-accent);
+  border-radius: 8px;
+  padding: 12px 0;
+}
+
+.frame-window {
+  --row-h: 24px;
+  --head-h: 28px;
+  --foot-h: 24px;
+  display: flex;
+  width: max-content;
+  min-width: 100%;
+}
+
+.fw-labels {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  padding: 0 6px 0 8px;
+  background: var(--bg-accent);
+}
+
+.fw-corner {
+  height: var(--head-h);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.fw-corner-foot {
+  height: var(--foot-h);
+}
+
+.fw-row-label {
+  height: var(--row-h);
+  min-width: 56px;
+  margin: 0;
+  padding: 0 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  box-shadow: none;
+}
+
+button.fw-row-label:hover {
+  transform: none;
+  background: var(--bg-secondary);
+  border-color: var(--accent-blue);
+  box-shadow: none;
+}
+
+.fw-row-label.is-base {
+  background: var(--row-base);
+  color: white;
+}
+
+.fw-row-label.is-gap,
+button.fw-row-label.is-gap:hover {
+  background: var(--row-gap);
+  border-color: var(--row-gap);
+  color: white;
+}
+
+.fw-strips {
+  display: flex;
+  gap: 6px;
+  padding: 0 12px 0 4px;
+}
+
+.fw-strip {
+  flex: 0 0 auto;
+  width: 32px;
+  display: flex;
+  flex-direction: column;
+}
+
+.fw-head {
+  height: var(--head-h);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: white;
+  background: var(--accent-green);
+  border-radius: 6px 6px 0 0;
+}
+
+.fw-viewport {
+  height: calc(var(--row-h) * 26);
+  overflow: hidden;
+  background: var(--bg-secondary);
+  border-left: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+}
+
+/* 52文字の帯を --offset 行ぶん上へ滑らせ、26行だけ見せる */
+.fw-tape {
+  transform: translateY(calc(var(--offset, 0) * var(--row-h) * -1));
+  transition: transform 0.3s ease;
+}
+
+.fw-cell {
+  height: var(--row-h);
+  line-height: var(--row-h);
+  text-align: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.fw-cell.is-base {
+  background: var(--row-base);
+  color: white;
+}
+
+.fw-cell.is-gap {
+  background: var(--row-gap);
+  color: white;
+}
+
+.fw-foot {
+  height: var(--foot-h);
+  line-height: var(--foot-h);
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-secondary);
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-top: 0;
+  border-radius: 0 0 6px 6px;
+}
+
+/* 群の文字がない列（最後の群が短いとき）は、滑らせずに淡く */
+.fw-strip.is-idle .fw-head {
+  background: var(--text-secondary);
+}
+
+.fw-strip.is-idle .fw-cell {
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+/* 群の切り替え */
+.group-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+}
+
+.group-btn {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 12px;
+}
+
+.group-label {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.group-text {
+  flex: 1 1 240px;
+  min-width: 0;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.noscript {
+  max-width: 1200px;
+  margin: 0 auto 16px;
+  padding: 12px 20px;
+  background: var(--error-bg);
+  border-left: 4px solid var(--error);
+}
+
+/* キーボード操作のフォーカス */
+:focus-visible {
+  outline: 3px solid var(--row-gap);
+  outline-offset: 2px;
+}
+
+.fw-row-label:focus-visible {
+  outline-offset: -3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* スマートフォン: iOS が入力時に拡大しないよう入力欄は16px */
+@media (max-width: 600px) {
+  input[type="text"],
+  input[type="number"],
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  .card {
+    padding: 16px;
+  }
+
+  /* タブは横スクロールでなく折り返して、全部見えるように */
+  .tabs {
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
+
+  .enc-strips-header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}
+
+/* 間の狭いボタンは、フォーカスの枠を内側に出して隣にかけない */
+.move-btn:focus-visible {
+  outline-offset: -3px;
 }

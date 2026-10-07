@@ -1,40 +1,39 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- `index.html` — Single-page UI and tab layout.
-- `script.js` — Core logic (strip generation, frame order, encrypt/decrypt, UI wiring).
-- `style.css` — Styles and visualization of strips/lines.
-- `assets/` — Images and static assets (e.g., `assets/screenshot.png`).
+- `index.html` — Single-page UI and tab layout (meta CSP: `'self'` only).
+- `js/strip-core.js` — Pure cipher logic (no DOM): strips, keyword order, encrypt/decrypt, the 26-row window, random and passphrase strips.
+- `js/messages.js` — UI strings used by `script.js`.
+- `script.js` — UI wiring (state, rendering, events).
+- `style.css` — Styles and the strip window.
+- `test/` — `node --test` suites (core, README, HTML, messages, contrast, format).
+- `assets/` — Screenshots used by the README.
 - `.nojekyll` — Enables GitHub Pages to serve files as-is.
 
 ## Build, Test, and Development Commands
-- Run locally (Python): `python -m http.server 8000` → open `http://localhost:8000/`.
-- Run locally (Node): `npx serve .` or `npx http-server . -p 8000`.
+- Test: `npm test` (Node.js 22+, no dependencies). GitHub Actions runs it on push and pull_request.
+- Run locally (Python): `python -m http.server 8000` → open `http://localhost:8000/`. Opening `index.html` directly also works.
 - No build step or bundler; keep it static and dependency-free.
 
 ## Coding Style & Naming Conventions
 - Indentation: 2 spaces; include semicolons; prefer double quotes in JS.
 - JavaScript: camelCase for variables/functions; UPPER_SNAKE_CASE for constants (e.g., `ALPHABET`).
-- CSS: kebab-case class names (e.g., `.enc-strips-container`, `.actual-strip-char`).
-- Files: lowercase with hyphens or simple names (e.g., `index.html`, `script.js`).
-- Keep functions small and UI updates isolated (e.g., `refresh*`, `init*` patterns).
+- CSS: kebab-case class names (e.g., `.frame-window`, `.fw-cell`).
+- Put logic in `js/strip-core.js` and UI strings in `js/messages.js`; keep `script.js` free of Japanese string literals.
+- No inline event handlers or `style` attributes (CSP). Set positions through CSS variables (`style.setProperty`).
 
 ## Testing Guidelines
-- No formal test suite. Perform manual checks in the browser:
-  - Build tab: generate random/keyed strips; validate and apply.
-  - Frame tab: reorder by drag-and-drop; verify `frameOrder` view.
-  - Encrypt/Decrypt tabs: type plaintext, adjust gap, copy outputs; confirm console logs.
-- Avoid regressions to default boot path (`DOMContentLoaded → boot()`), which seeds sample strips.
+- Add or update tests with every change; do not change expected values to make tests pass.
+- README examples are recomputed by `test/readme.test.js`; keep them in sync with the core.
+- Manual checks in the browser: generate strips (random / passphrase / manual), set the order (first N / keyword / numbers / drag / ◀ ▶), encrypt and decrypt while changing the gap and the group.
 
 ## Commit & Pull Request Guidelines
-- Commit messages: imperative, concise summary; add short scope if useful (e.g., `enc`, `ui`, `style`).
-  - Example: `enc: fix cipher line positioning at gap edges`.
+- Commit messages: concise summary; add short scope if useful (e.g., `enc`, `ui`, `style`).
 - PRs should include: purpose, screenshots for UI changes, steps to verify locally, and any trade-offs.
-- Link related issues; keep diffs minimal and focused.
 
 ## Security & Configuration Tips
-- No secrets or network calls; all logic is client-side. Avoid adding external scripts without review.
+- No secrets or network calls; all logic is client-side. Do not add external scripts.
 - Preserve static hosting compatibility (GitHub Pages); do not introduce a mandatory build step.
 
 ## Agent-Specific Instructions
-- Follow existing patterns and do not add dependencies. Update README if UX or flows change.
+- Follow existing patterns and do not add dependencies. Update README (and its tests) if UX or flows change.

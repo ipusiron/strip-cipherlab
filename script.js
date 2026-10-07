@@ -1,809 +1,257 @@
 /* ===============================
- * Strip CipherLab (教育用簡易モデル)
- * - ストリップ作成
- * - フレーム設定（装着順・基準行・オフセット）
- * - 暗号化／復号（Row-Key & Shift-Key）
- * - プレイバック可視化
- * - JSON入出力
+ * Strip CipherLab（教育用簡易モデル）
+ * - ストリップ作成（ランダム・合言葉・手入力）
+ * - ストリップ初期設定（使用本数・鍵語・番号で装着順を決める）
+ * - 暗号化／復号（26行の窓で、群ごとにストリップを滑らせて読む）
+ * - 座学
+ * 計算は js/strip-core.js（StripCore）、画面の文言は js/messages.js（StripMessages）
  * =============================== */
 
-const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const Core = globalThis.StripCore;
+const Messages = globalThis.StripMessages;
 
 // ---------- 状態 ----------
 const state = {
   strips: [],                 // ["QWERTY...", ...] 26文字各
-  frameOrder: [],             // [0,1,2,...] 使用する行のインデックス（左→右）
-  cipherRowGapEnc: 1,         // 暗号化タブ用 段差
-  cipherRowGapDec: 1,         // 復号タブ用 段差
+  stripsVersion: 0,           // ストリップを作り直すたびに増やす（窓を作り直す目印）
+  frameOrder: [],             // 装着順（左→右）。ストリップの添字（0始まり。画面では1始まりの番号）
+  cipherRowGapEnc: 1,         // 暗号化タブ用 段差（1〜25）
+  cipherRowGapDec: 1,         // 復号タブ用 段差（1〜25）
+  encGroup: 0,                // 暗号化タブの窓に出している群（0始まり）
+  decGroup: 0,                // 復号タブの窓に出している群（0始まり）
 };
 
 // ---------- ユーティリティ ----------
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+const t = (key, params) => Messages.t("ja", key, params);
+const stripLabel = (index) => "#" + (index + 1);
+const gapLabel = (g, mode) => (mode === "dec" ? "-" : "+") + g;
 
-function randPermutationAlphabet() {
-  const arr = ALPHABET.split("");
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = (Math.random() * (i + 1)) | 0;
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr.join("");
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
 }
 
-// キーワード→置換アルファベット（Keyed Alphabet）
-function keyedAlphabet(keyword) {
-  const k = normalizeLetters(keyword).replace(/[^A-Z]/g, "");
-  const seen = new Set();
-  let out = "";
-  for (const ch of k) {
-    if (!seen.has(ch)) { seen.add(ch); out += ch; }
-  }
-  for (const ch of ALPHABET) {
-    if (!seen.has(ch)) out += ch;
-  }
-  return out;
+function clampInt(value, min, max, fallback) {
+  const n = Math.trunc(Number(value));
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, n));
 }
 
-// 文字→A=0..Z=25
-function lettersToNumbers(s) {
-  const up = normalizeLetters(s).replace(/[^A-Z]/g, "");
-  return Array.from(up).map(ch => ch.charCodeAt(0) - 65);
+// 状態表示の欄（role="status"）に文言を出す。kind は "ok" か "error"
+function setMessage(selector, lines, kind) {
+  const box = $(selector);
+  box.textContent = Array.isArray(lines) ? lines.join("\n") : (lines || "");
+  box.classList.toggle("is-error", kind === "error");
+  box.classList.toggle("is-ok", kind === "ok");
 }
 
-// 大文字化
-function normalizeLetters(text) {
-  return text.toUpperCase();
-}
-
-function isAlpha(ch) { return ch >= 'A' && ch <= 'Z'; }
-
-// ストリップのスライド範囲に応じてコンテナの高さを動的調整
-function adjustContainerHeight(container, opts = { mode: 'enc' }) {
-  const strips = container.querySelectorAll('.actual-strip');
-  if (strips.length === 0) return;
-
-  let minTranslateY = 0;
-  let maxTranslateY = 0;
-
-  // 全ストリップのtransform値を解析
-  strips.forEach(strip => {
-    const transform = strip.style.transform;
-    if (transform && transform.includes('translateY')) {
-      const match = transform.match(/translateY\(([^)]+)px\)/);
-      if (match) {
-        const translateY = parseFloat(match[1]);
-        minTranslateY = Math.min(minTranslateY, translateY);
-        maxTranslateY = Math.max(maxTranslateY, translateY);
-      }
-    }
-  });
-
-  // ストリップの基本高さ（52文字 * CHAR_HEIGHT）
-  const stripHeight = 52 * CHAR_HEIGHT;
-  const basePadding = 16;
-
-  // 必要な上下の追加スペースを計算
-  const topExtraSpace = Math.max(0, -minTranslateY);
-  const bottomExtraSpace = Math.max(0, maxTranslateY);
-
-  if (opts.mode === 'enc') {
-    // 暗号化タブ: 上方向のはみ出し分だけpadding-topを加算して重なりを防止
-    const newPaddingTop = basePadding + topExtraSpace;
-    const newMinHeight = stripHeight + topExtraSpace + bottomExtraSpace + basePadding * 2;
-    container.style.paddingTop = `${newPaddingTop}px`;
-    container.style.minHeight = `${newMinHeight}px`;
-    console.log(`Container adjusted (ENC): paddingTop=${newPaddingTop}px, minHeight=${newMinHeight}px, translateY range: ${minTranslateY} to ${maxTranslateY}`);
-  } else {
-    // 復号タブ: はみ出しを避けるため上下方向の余白を確保（枠内に収める）
-    const newPaddingTop = basePadding + topExtraSpace;
-    const newMinHeight = stripHeight + topExtraSpace + bottomExtraSpace + basePadding * 2;
-    container.style.paddingTop = `${newPaddingTop}px`;
-    container.style.minHeight = `${newMinHeight}px`;
-    console.log(`Container adjusted (DEC): paddingTop=${newPaddingTop}px, minHeight=${newMinHeight}px, translateY range: ${minTranslateY} to ${maxTranslateY}`);
-  }
-}
-
-const CHAR_HEIGHT = 24; // px grid step used for all vertical math
-const BASELINE_ROW_INDEX_ENC = 13; // 14th row for encryption view
-const BASELINE_ROW_INDEX_DEC = 39; // 40th row for decryption view (lower half)
-
-// 基準線とラベルの位置を動的に調整（コンテナpadding基準で安定化）
-function updateBaselinePosition(container, opts = { mode: 'enc' }) {
-  // 既存の動的要素と古い固定要素を削除
-  const existingBaseline = container.querySelector('.dynamic-baseline');
-  const existingLabel = container.querySelector('.dynamic-baseline-label');
-  const existingCipherLine = container.querySelector('.dynamic-cipher-line');
-  const existingCipherLabel = container.querySelector('.dynamic-cipher-label');
-  const oldCipherLine = container.querySelector('.cipher-line');
-  const oldCipherLabel = container.querySelector('.cipher-line-label');
-
-  if (existingBaseline) existingBaseline.remove();
-  if (existingLabel) existingLabel.remove();
-  if (existingCipherLine) existingCipherLine.remove();
-  if (existingCipherLabel) existingCipherLabel.remove();
-  if (oldCipherLine) oldCipherLine.remove();
-  if (oldCipherLabel) oldCipherLabel.remove();
-
-  // コンテナのpaddingTopを基準に安定した基準線を算出
-  const cs = getComputedStyle(container);
-  const padTop = parseFloat(cs.paddingTop) || 16;
-  const baseRow = opts.mode === 'dec' ? BASELINE_ROW_INDEX_DEC : BASELINE_ROW_INDEX_ENC;
-  let baselineTop = padTop + (baseRow + 1) * CHAR_HEIGHT;
-  // ピクセルに揃える（サブピクセルのズレを防ぐ）
-  baselineTop = Math.round(baselineTop);
-  // ラインの位置を計算（encは下方向、decは上方向）
-  const gap = (opts && Number.isInteger(opts.gap)) ? opts.gap : state.cipherRowGapEnc;
-  const cipherLineTop = opts.mode === 'dec'
-    ? (baselineTop - gap * CHAR_HEIGHT)
-    : (baselineTop + gap * CHAR_HEIGHT);
-
-  // 動的基準線を作成（ストリップより前面に配置）
-  const baseline = document.createElement('div');
-  baseline.className = 'dynamic-baseline';
-  baseline.style.cssText = `
-    position: absolute;
-    top: ${baselineTop}px;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: var(--accent-red);
-    z-index: 100;
-    pointer-events: none;
-    box-shadow: 0 0 4px rgba(239, 68, 68, 0.5);
-  `;
-
-  // 基準線ラベルを作成
-  const label = document.createElement('div');
-  label.className = 'dynamic-baseline-label';
-  label.textContent = opts.mode === 'dec' ? '基準線（暗号文）' : '基準線（平文）';
-  label.style.cssText = `
-    position: absolute;
-    top: ${baselineTop}px;
-    left: 16px;
-    transform: translateY(-50%);
-    background: var(--accent-red);
-    color: white;
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 12px;
-    font-weight: 500;
-    z-index: 101;
-    pointer-events: none;
-  `;
-
-  // 動的暗号文ラインを作成
-  const cipherLine = document.createElement('div');
-  cipherLine.className = 'dynamic-cipher-line';
-  cipherLine.style.cssText = `
-    position: absolute;
-    top: ${cipherLineTop}px;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background: var(--accent-blue);
-    z-index: 110;
-    pointer-events: none;
-    box-shadow: 0 0 4px rgba(59, 130, 246, 0.5);
-  `;
-
-  // 暗号文ラインラベルを作成
-  const cipherLabel = document.createElement('div');
-  cipherLabel.className = 'dynamic-cipher-label';
-  cipherLabel.textContent = opts.mode === 'dec'
-    ? `平文候補行 (段差-${gap})`
-    : `暗号文候補 (段差+${gap})`;
-  cipherLabel.style.cssText = `
-    position: absolute;
-    top: ${cipherLineTop}px;
-    right: 16px; /* ラベルをストリップの右側に配置 */
-    transform: translateY(-50%);
-    background: var(--accent-blue);
-    color: white;
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 12px;
-    font-weight: 500;
-    z-index: 111;
-    pointer-events: none;
-  `;
-
-  container.appendChild(baseline);
-  container.appendChild(label);
-  container.appendChild(cipherLine);
-  container.appendChild(cipherLabel);
-}
-
-// トースト表示機能
+// トースト表示機能（#toast は aria-live の欄）
+let toastTimer = 0;
 function showToast(message, duration = 3000) {
-  // 既存のトーストがあれば削除
-  const existingToast = document.querySelector('.toast');
-  if (existingToast) {
-    existingToast.remove();
-  }
-
-  // 新しいトーストを作成
-  const toast = document.createElement('div');
-  toast.className = 'toast';
+  const toast = $("#toast");
   toast.textContent = message;
-  document.body.appendChild(toast);
-
-  // アニメーション開始
-  setTimeout(() => {
-    toast.classList.add('show');
-  }, 10);
-
-  // 指定時間後に非表示
-  setTimeout(() => {
-    toast.classList.remove('show');
-    setTimeout(() => {
-      if (toast.parentNode) {
-        toast.remove();
-      }
-    }, 300); // トランジション時間
-  }, duration);
+  toast.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove("show"), duration);
 }
 
+async function copyText(text, okKey) {
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast(t(okKey));
+  } catch (e) {
+    showToast(t("toast.copyFailed"));
+  }
+}
 
-// 鍵語 → 装着順（アルファベット順割当／同字は左から若番）
-function frameOrderFromKeyphrase(key, lengthNeeded) {
-  const cleaned = key.toUpperCase().replace(/[^A-Z]/g, "");
-  if (!cleaned.length) return null;
-  const N = cleaned.length;
-  // 各文字の順位（A→Z）でグルーピングし、出現順に番号を振る
-  const entries = cleaned.split("").map((ch, idx) => ({ ch, idx }));
-  // 文字→出現index配列（左から）
-  const map = {};
-  entries.forEach(e => {
-    if (!map[e.ch]) map[e.ch] = [];
-    map[e.ch].push(e.idx);
+// ---------- ストリップの検査の文言 ----------
+function describeProblems(parsed) {
+  const lines = parsed.problems.map((p) => {
+    const parts = [t("strip.line", { line: p.line, length: p.length })];
+    if (p.duplicates.length) parts.push(t("strip.duplicates", { letters: p.duplicates.join(" ") }));
+    if (p.missing.length) parts.push(t("strip.missing", { letters: p.missing.join(" ") }));
+    return parts.join(t("sep.clause"));
   });
-  // A→Zの順に、各文字の出現位置を左から処理して連番を付与
-  const orderNums = Array(N).fill(0);
-  let num = 1;
-  for (const letter of ALPHABET) {
-    const arr = map[letter];
-    if (!arr) continue;
-    for (const pos of arr) {
-      orderNums[pos] = num++;
-    }
-  }
-  // 1..N を 0..N-1 に変換（装着するストリップのインデックスとして）
-  // ※本数＝鍵語長とするのが自然。必要本数と一致しない場合は切詰め／不足分は先頭から補完。
-  const zeroBased = orderNums.map(n => n - 1);
-  let frame = zeroBased;
-  // 長さ調整
-  if (lengthNeeded && lengthNeeded > 0) {
-    if (frame.length > lengthNeeded) frame = frame.slice(0, lengthNeeded);
-    if (frame.length < lengthNeeded) {
-      // 不足分は 0.. で埋める（重複OK。運用で避けたい場合は後で手動修正）
-      const pad = [];
-      let p = 0;
-      while (frame.length + pad.length < lengthNeeded) {
-        pad.push(p % N); p++;
-      }
-      frame = frame.concat(pad);
-    }
-  }
-  return frame;
+  if (parsed.tooMany) lines.push(t("strip.tooMany", { max: Core.MAX_STRIPS }));
+  if (!parsed.strips.length && !parsed.problems.length) lines.push(t("strip.empty"));
+  return lines;
 }
 
-
-// ---------- 簡素化されたストリップ暗号 ----------
-function simpleEncrypt(plain, options = {}) {
-  if (state.frameOrder.length === 0) throw new Error("ストリップが設定されていません。");
-
-
-  let result = "";
-  let charIndex = 0;
-
-  const src = plain;
-  for (let i = 0; i < src.length; i++) {
-    const raw = src[i];
-    let P = normalizeLetters(raw);
-
-    if (!isAlpha(P)) {
-      continue;
-    }
-
-    // 使用するストリップを循環で選択
-    const stripIndex = state.frameOrder[charIndex % state.frameOrder.length];
-    const stripText = state.strips[stripIndex];
-
-    // ストリップ内で平文文字の位置を検索
-    const plaintextPositionInStrip = stripText.indexOf(P);
-    if (plaintextPositionInStrip === -1) {
-      throw new Error(`文字 '${P}' がストリップ #${stripIndex} に見つかりません`);
-    }
-
-    // ストリップを移動させて、平文文字を基準位置（例：位置13）に配置
-    // 段差位置（基準位置 + 段差）から暗号文字を読み取る
-    const basePosition = 13; // 基準線の位置（任意の固定値）
-    const cipherPosition = (basePosition + state.cipherRowGap) % 26;
-
-    // ストリップ上での実際の暗号文字位置を計算
-    // 平文が基準位置に来るようにストリップをスライドした状態で、段差位置の文字を取得
-    const gap = Number.isInteger(options.gap) ? options.gap : state.cipherRowGapEnc;
-    const actualCipherPosition = (plaintextPositionInStrip + gap) % 26;
-    const C = stripText[actualCipherPosition];
-
-    console.log(`Encrypt char ${charIndex}: '${P}' at strip pos ${plaintextPositionInStrip} -> slide to baseline -> read cipher at gap +${gap} = '${C}'`);
-
-    result += C;
-
-    charIndex++;
-  }
-
-  return result;
+function describeCycles(strips) {
+  return Core.sameCycleGroups(strips).map((g) => t("strip.sameCycle", { list: g.map(stripLabel).join(t("sep.list")) }));
 }
 
-function simpleDecrypt(cipher, options = {}) {
-  if (state.frameOrder.length === 0) throw new Error("ストリップが設定されていません。");
-
-  // 入力正規化（空白除去）
-  const src = cipher.toUpperCase().replace(/[^A-Z]/g, "");
-  let result = "";
-
-  for (let i = 0; i < src.length; i++) {
-    const C = src[i];
-    if (!isAlpha(C)) continue;
-
-    // 使用するストリップを循環で選択
-    const stripIndex = state.frameOrder[i % state.frameOrder.length];
-    const stripText = state.strips[stripIndex];
-
-    // ストリップ内で暗号文字の位置を検索
-    const cipherPositionInStrip = stripText.indexOf(C);
-    if (cipherPositionInStrip === -1) {
-      throw new Error(`暗号文字 '${C}' がストリップ #${stripIndex} に見つかりません`);
-    }
-
-    // 平文文字位置を計算：暗号文字位置 - 段差 (mod 26)
-    const gap = Number.isInteger(options.gap) ? options.gap : state.cipherRowGapDec;
-    const plaintextPositionInStrip = (cipherPositionInStrip - gap + 26) % 26;
-    const P = stripText[plaintextPositionInStrip];
-    result += P;
-  }
-
-  return result;
+// ---------- 状態の変更（変えたら必ず全タブを描き直す） ----------
+function setStrips(strips) {
+  state.strips = strips;
+  state.stripsVersion++;
+  state.frameOrder = Core.firstOrder(strips.length);
+  state.encGroup = 0;
+  state.decGroup = 0;
+  $("#useCount").value = String(strips.length);
+  $("#stripsText").value = strips.join("\n");
+  refreshActualStrips();
+  renderOrderViews();
 }
 
+function setOrder(order) {
+  state.frameOrder = order;
+  state.encGroup = 0;
+  state.decGroup = 0;
+  $("#useCount").value = String(order.length);
+  renderOrderViews();
+}
 
-// ---------- UI 初期化 ----------
+function renderOrderViews() {
+  refreshFrameView();
+  renderEnc();
+  renderDec();
+}
+
+// ---------- タブ ----------
+function activateTab(btn, focus) {
+  $$(".tab-btn").forEach((b) => {
+    const on = b === btn;
+    b.classList.toggle("active", on);
+    b.setAttribute("aria-selected", on ? "true" : "false");
+    b.tabIndex = on ? 0 : -1;
+  });
+  $$(".tab-panel").forEach((p) => p.classList.toggle("active", p.id === btn.dataset.tab));
+  if (focus) btn.focus();
+}
+
 function initTabs() {
-  $$(".tab-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      $$(".tab-btn").forEach(b => b.classList.remove("active"));
-      $$(".tab-panel").forEach(p => p.classList.remove("active"));
-      btn.classList.add("active");
-      const id = btn.dataset.tab;
-      $("#" + id).classList.add("active");
-
-      // タブ切替時に復号エリアを再描画して高さ・基準線を調整
-      if (id === 'dec') {
-        try {
-          refreshDecStrips();
-          autoDecrypt();
-          const container = $("#decStripsDisplay");
-          if (container) {
-            requestAnimationFrame(() => updateBaselinePosition(container, { mode: 'dec', gap: state.cipherRowGapDec }));
-          }
-        } catch {}
-      }
+  const tabs = $$(".tab-btn");
+  tabs.forEach((btn, i) => {
+    btn.addEventListener("click", () => activateTab(btn, false));
+    btn.addEventListener("keydown", (e) => {
+      let next = -1;
+      if (e.key === "ArrowRight") next = (i + 1) % tabs.length;
+      else if (e.key === "ArrowLeft") next = (i - 1 + tabs.length) % tabs.length;
+      else if (e.key === "Home") next = 0;
+      else if (e.key === "End") next = tabs.length - 1;
+      if (next < 0) return;
+      e.preventDefault();
+      activateTab(tabs[next], true);
     });
   });
 }
 
-function refreshStripsTextarea() {
-  $("#stripsText").value = state.strips.join("\n");
-}
-
-// 実際のストリップ表示を更新
+// ---------- ストリップ作成タブ ----------
+// 実際のストリップ表示を更新（26文字を2回続けた52文字）
 function refreshActualStrips() {
   const container = $("#actualStripsContainer");
-  container.innerHTML = "";
-
+  container.replaceChildren();
   if (state.strips.length === 0) {
-    const message = document.createElement("div");
-    message.className = "no-strips-message";
-    message.textContent = "上の設定からストリップを生成してください";
-    container.appendChild(message);
+    container.appendChild(el("div", "no-strips-message", t("build.noStrips")));
     return;
   }
-
-  // 各ストリップを表示
-  for (let i = 0; i < state.strips.length; i++) {
-    const alphabet = state.strips[i];
-    const actualStrip = alphabet + alphabet; // 26文字を2回繰り返し
-
-    const stripElement = document.createElement("div");
-    stripElement.className = "actual-strip";
-
-    // ストリップヘッダー
-    const header = document.createElement("div");
-    header.className = "actual-strip-header";
-    header.textContent = `#${i}`;
-
-    // ストリップ本体
-    const body = document.createElement("div");
-    body.className = "actual-strip-body";
-
-    // 文字を縦に配置
-    for (let j = 0; j < actualStrip.length; j++) {
-      const charElement = document.createElement("div");
-      charElement.className = "actual-strip-char";
-      charElement.textContent = actualStrip[j];
-
-      // 最初の26文字と繰り返し部分で背景色を変える
-      if (j < 26) {
-        charElement.classList.add("first-section");
-      } else {
-        charElement.classList.add("repeat-section");
-      }
-
-      // 26文字目には区切りのスタイルを追加
-      if (j === 25) {
-        charElement.classList.add("section-end");
-      }
-
+  state.strips.forEach((alphabet, i) => {
+    const stripElement = el("div", "actual-strip");
+    stripElement.appendChild(el("div", "actual-strip-header", stripLabel(i)));
+    const body = el("div", "actual-strip-body");
+    const doubled = alphabet + alphabet;
+    for (let j = 0; j < doubled.length; j++) {
+      // 最初の26文字と繰り返し部分で背景色を変え、26文字目に区切りを付ける
+      const charElement = el("div", "actual-strip-char " + (j < 26 ? "first-section" : "repeat-section"), doubled[j]);
+      if (j === 25) charElement.classList.add("section-end");
       body.appendChild(charElement);
     }
-
-    stripElement.appendChild(header);
     stripElement.appendChild(body);
     container.appendChild(stripElement);
-  }
-}
-
-
-
-function initCipherControls() {
-  const upBtn = $("#cipherUpBtn");
-  const downBtn = $("#cipherDownBtn");
-  const offsetValue = $("#cipherOffsetValue");
-
-  // 既存のイベントリスナーがある場合は削除して重複を防ぐ
-  if (upBtn._cipherControlsInitialized) {
-    return;
-  }
-  upBtn._cipherControlsInitialized = true;
-
-  function updateCipherPosition() {
-    // 段差表示を更新
-    offsetValue.textContent = state.cipherRowGapEnc;
-
-    // ボタンの状態を更新
-    upBtn.disabled = state.cipherRowGapEnc >= 25;
-    downBtn.disabled = state.cipherRowGapEnc <= 1;
-
-    // 暗号化結果とストリップ表示を更新
-    autoEncrypt();
-    const pt = $("#plainText").value || "";
-    const hasAlpha = /[A-Za-z]/.test(pt);
-    if (hasAlpha) {
-      // 文字がある場合のみストリップ再配置（不要な再配置で基準線が揺れないように）
-      refreshEncStrips();
-    }
-
-    // 段差変更時に基準線と暗号文ラインの位置も更新
-    const container = $("#encStripsDisplay");
-    if (container) {
-      updateBaselinePosition(container, { mode: 'enc', gap: state.cipherRowGapEnc });
-    }
-
-    console.log(`Cipher row gap (enc) updated to: ${state.cipherRowGapEnc}`);
-  }
-
-  // ボタンイベントリスナー
-  upBtn.addEventListener('click', () => {
-    console.log(`Up button clicked (enc), current gap: ${state.cipherRowGapEnc}`);
-    if (state.cipherRowGapEnc < 25) {
-      state.cipherRowGapEnc++;
-      updateCipherPosition();
-    }
-  });
-
-  downBtn.addEventListener('click', () => {
-    console.log(`Down button clicked (enc), current gap: ${state.cipherRowGapEnc}`);
-    if (state.cipherRowGapEnc > 1) {
-      state.cipherRowGapEnc--;
-      updateCipherPosition();
-    }
-  });
-
-  // 初期状態を設定
-  updateCipherPosition();
-}
-
-function updatePlaintextWarnings() {
-  const warningsContainer = $("#plainTextWarnings");
-  const plainText = $("#plainText").value;
-  const maxChars = state.frameOrder.length || 10; // デフォルト10文字
-
-  // 警告をクリア
-  warningsContainer.innerHTML = "";
-
-  if (!plainText.trim()) {
-    return; // 空文字の場合は警告不要
-  }
-
-  // アルファベット文字のみを抽出
-  const alphaChars = [];
-  const nonAlphaChars = [];
-
-  for (let i = 0; i < plainText.length; i++) {
-    const char = plainText[i].toUpperCase();
-    if (char >= 'A' && char <= 'Z') {
-      alphaChars.push(char);
-    } else {
-      nonAlphaChars.push(plainText[i]);
-    }
-  }
-
-  const warnings = [];
-
-  // 非アルファベット文字の警告
-  if (nonAlphaChars.length > 0) {
-    warnings.push(`非アルファベット文字（${nonAlphaChars.slice(0, 5).join(', ')}${nonAlphaChars.length > 5 ? '...' : ''}）は処理から除外されます`);
-  }
-
-  // 文字数超過の警告
-  if (alphaChars.length > maxChars) {
-    warnings.push(`最初の${maxChars}文字だけを処理対象とします（${alphaChars.length}文字入力済み）`);
-  }
-
-  // 警告メッセージを表示
-  warnings.forEach(warning => {
-    const warningDiv = document.createElement("div");
-    warningDiv.className = "warning-message";
-    warningDiv.textContent = warning;
-    warningsContainer.appendChild(warningDiv);
   });
 }
 
-function refreshEncStrips() {
-  const container = $("#encStripsDisplay");
-  container.innerHTML = "";
-
-  if (state.frameOrder.length === 0) {
-    const message = document.createElement("div");
-    message.className = "no-strips-message";
-    message.textContent = "ストリップ設定タブでストリップを配置してください";
-    container.appendChild(message);
-    return;
-  }
-
-
-  // 平文を取得して各文字のストリップ位置を計算
-  const plainText = $("#plainText").value;
-
-  // 各ストリップが担当する平文文字を計算
-  const stripPlaintextChars = {};
-  let alphaCharIndex = 0; // アルファベット文字のインデックス（ストリップ選択用）
-
-  for (let i = 0; i < plainText.length; i++) {
-    const rawChar = plainText[i];
-    const normalizedChar = normalizeLetters(rawChar);
-
-    if (!isAlpha(normalizedChar)) {
-      continue; // 非アルファベット文字はスキップ
-    }
-
-    const stripIndex = alphaCharIndex % state.frameOrder.length;
-    if (!stripPlaintextChars[stripIndex]) {
-      stripPlaintextChars[stripIndex] = [];
-    }
-    const alphaIndex = normalizedChar.charCodeAt(0) - 65; // A=0, B=1, ...
-    stripPlaintextChars[stripIndex].push({
-      char: normalizedChar,
-      position: alphaIndex,
-      charIndex: alphaCharIndex,
-      originalIndex: i // 元のテキストでの位置
-    });
-
-    alphaCharIndex++;
-  }
-
-  // frameOrderに従ってストリップを表示（read-only版）
-  for (let i = 0; i < state.frameOrder.length; i++) {
-    const rowIndex = state.frameOrder[i];
-    const alphabet = state.strips[rowIndex];
-
-    console.log(`Strip ${i}: rowIndex=${rowIndex}, alphabet="${alphabet}"`);
-
-    if (!alphabet) {
-      console.error(`Strip ${i}: No alphabet found for rowIndex ${rowIndex}`);
-      continue;
-    }
-
-    const actualStrip = alphabet + alphabet; // 26文字を2回繰り返し
-
-    const stripElement = document.createElement("div");
-    stripElement.className = "actual-strip enc-strip-readonly";
-    const charHeight = 24; // px; must match CSS in enc view
-    const plaintextChars = stripPlaintextChars[i];
-
-    // ストリップヘッダー
-    const header = document.createElement("div");
-    header.className = "actual-strip-header";
-    header.textContent = `#${rowIndex}`;
-
-    // ストリップ本体
-    const body = document.createElement("div");
-    body.className = "actual-strip-body";
-
-    // 平文の文字位置に応じてハイライトする文字のインデックスを計算
-    const highlightPositions = new Set();
-
-    if (plaintextChars && plaintextChars.length > 0) {
-      // このストリップが担当する全ての平文文字をハイライト
-      plaintextChars.forEach((charInfo, idx) => {
-        const plainChar = charInfo.char;
-
-        // ストリップ内での平文文字の位置を検索
-        const charPositionInStrip = alphabet.indexOf(plainChar);
-
-        if (charPositionInStrip >= 0) {
-          // 上側の青色部分のみハイライト
-          highlightPositions.add(charPositionInStrip);
-
-          // デバッグ情報（最初の文字のみ）
-          if (idx === 0) {
-            const cipherIndex_debug = (13 + state.cipherRowGapEnc) % 52;
-            const cipherChar = actualStrip[cipherIndex_debug];
-            console.log(`Alpha char ${charInfo.charIndex} (orig pos ${charInfo.originalIndex}): '${plainChar}' (strip position ${charPositionInStrip}) at baseline position 13 -> cipher position ${cipherIndex_debug}: '${cipherChar}'`);
-          }
-        }
-      });
-    }
-
-    // 文字を縦に配置
-    for (let j = 0; j < actualStrip.length; j++) {
-      const charElement = document.createElement("div");
-      charElement.className = "actual-strip-char";
-      charElement.textContent = actualStrip[j];
-
-      // 最初の26文字と繰り返し部分で背景色を変える
-      if (j < 26) {
-        charElement.classList.add("first-section");
-      } else {
-        charElement.classList.add("repeat-section");
-      }
-
-      // 26文字目には区切りのスタイルを追加
-      if (j === 25) {
-        charElement.classList.add("section-end");
-      }
-
-      // 平文文字に対応する位置をハイライト（細い赤枠のみ）
-      if (highlightPositions.has(j)) {
-        charElement.classList.add("highlight-active");
-      }
-
-      body.appendChild(charElement);
-    }
-
-    // Position indicator
-    const positionIndicator = document.createElement("div");
-    positionIndicator.className = "strip-position";
-    positionIndicator.textContent = `位置 ${i + 1}`;
-
-    stripElement.appendChild(header);
-    stripElement.appendChild(body);
-    stripElement.appendChild(positionIndicator);
-    container.appendChild(stripElement);
-
-    // Store first plaintext char position for alignment (or -1 if none)
-    let firstPlainPos = -1;
-    if (plaintextChars && plaintextChars.length > 0) {
-      const firstChar = plaintextChars[0].char;
-      const pos = alphabet.indexOf(firstChar);
-      if (pos >= 0) firstPlainPos = pos;
-    }
-    stripElement.dataset.firstPlainPos = String(firstPlainPos);
-  }
-
-  // Align all strips to the baseline based on final container geometry
-  const alignAllStripsToBaseline = () => {
-    const containerRect = container.getBoundingClientRect();
-    const cs = getComputedStyle(container);
-    const padTop = parseFloat(cs.paddingTop) || 16;
-    const baselineTop = Math.round(padTop + (BASELINE_ROW_INDEX_ENC + 1) * CHAR_HEIGHT);
-
-    container.querySelectorAll('.enc-strip-readonly').forEach(strip => {
-      const body = strip.querySelector('.actual-strip-body');
-      if (!body) return;
-      let pos = parseInt(strip.dataset.firstPlainPos || '-1', 10);
-      // 初回表示など対象文字が無い場合は14文字目(インデックス13)に揃える
-      if (pos < 0) pos = 13;
-      const bRect = body.getBoundingClientRect();
-      const bTopRel = bRect.top - containerRect.top;
-      const currentBottom = bTopRel + (pos + 1) * CHAR_HEIGHT;
-      const shiftAmount = Math.round(baselineTop - currentBottom);
-      strip.style.transform = `translateY(${shiftAmount}px)`;
-    });
-  };
-
-  // Step 1: initial align, Step 2: adjust height (ENC), Step 3: final align + line redraw
-  alignAllStripsToBaseline();
-  adjustContainerHeight(container, { mode: 'enc' });
-  requestAnimationFrame(() => {
-    alignAllStripsToBaseline();
-    updateBaselinePosition(container, { mode: 'enc', gap: state.cipherRowGapEnc });
-    // 初回描画でのズレ回避のため、もう一度次フレームで位置を確定
-    requestAnimationFrame(() => updateBaselinePosition(container, { mode: 'enc', gap: state.cipherRowGapEnc }));
-  });
-
-  console.log(`refreshEncStrips: Total strips rendered: ${container.children.length}`);
+function readGenCount() {
+  const n = clampInt($("#genCount").value, 1, Core.MAX_STRIPS, 10);
+  $("#genCount").value = String(n);
+  return n;
 }
 
+function initBuildTab() {
+  $("#btnGenRandom").addEventListener("click", () => {
+    const n = readGenCount();
+    setStrips(Core.randomStrips(n, Core.cryptoBytes));
+    setMessage("#genMsg", t("build.generated", { count: n }), "ok");
+    setMessage("#validateMsg", "");
+  });
+
+  $("#btnGenPassphrase").addEventListener("click", () => {
+    const pass = Core.normalizePassphrase($("#passphrase").value);
+    if (!pass) { setMessage("#genMsg", t("build.needPassphrase"), "error"); return; }
+    const n = readGenCount();
+    setStrips(Core.passphraseStrips(pass, n));
+    setMessage("#genMsg", t("build.generatedPass", { count: n }), "ok");
+    setMessage("#validateMsg", "");
+  });
+
+  $("#btnValidate").addEventListener("click", () => {
+    const parsed = Core.parseStrips($("#stripsText").value);
+    const problems = describeProblems(parsed);
+    if (problems.length) { setMessage("#validateMsg", problems, "error"); return; }
+    const cycles = describeCycles(parsed.strips);
+    setMessage("#validateMsg", [t("strip.valid", { count: parsed.strips.length })].concat(cycles), cycles.length ? "error" : "ok");
+  });
+
+  $("#btnApplyStrips").addEventListener("click", () => {
+    const parsed = Core.parseStrips($("#stripsText").value);
+    const problems = describeProblems(parsed);
+    if (problems.length) {
+      setMessage("#validateMsg", [t("strip.notApplied")].concat(problems), "error");
+      return;
+    }
+    setStrips(parsed.strips);
+    const cycles = describeCycles(parsed.strips);
+    setMessage("#validateMsg", [t("strip.applied", { count: parsed.strips.length })].concat(cycles), cycles.length ? "error" : "ok");
+    setMessage("#genMsg", "");
+  });
+}
+
+// ---------- ストリップ初期設定タブ ----------
 function refreshFrameView() {
-  $("#frameOrderView").textContent = "[" + state.frameOrder.join(", ") + "]";
-  // strips visualization using the same style as actual strips
+  $("#frameOrderView").textContent = state.frameOrder.map((i) => i + 1).join(" ");
   const container = $("#offsetTable");
-  container.innerHTML = "";
-
-  // Create strips display
-  for (let i = 0; i < state.frameOrder.length; i++) {
-    const rowIndex = state.frameOrder[i];
-    const alphabet = state.strips[rowIndex];
-    const actualStrip = alphabet + alphabet; // 26文字を2回繰り返し
-
-    const stripElement = document.createElement("div");
-    stripElement.className = "actual-strip draggable-strip";
+  container.replaceChildren();
+  const last = state.frameOrder.length - 1;
+  state.frameOrder.forEach((rowIndex, i) => {
+    const stripElement = el("div", "actual-strip draggable-strip");
     stripElement.draggable = true;
     stripElement.dataset.stripIndex = String(i);
-    stripElement.dataset.rowIndex = String(rowIndex);
-
-    // ストリップヘッダー
-    const header = document.createElement("div");
-    header.className = "actual-strip-header";
-    header.textContent = `#${rowIndex}`;
-
-    // ストリップ本体
-    const body = document.createElement("div");
-    body.className = "actual-strip-body";
-
-    // 文字を縦に配置
-    for (let j = 0; j < actualStrip.length; j++) {
-      const charElement = document.createElement("div");
-      charElement.className = "actual-strip-char";
-      charElement.textContent = actualStrip[j];
-
-      // 最初の26文字と繰り返し部分で背景色を変える
-      if (j < 26) {
-        charElement.classList.add("first-section");
-      } else {
-        charElement.classList.add("repeat-section");
-      }
-
-      // 26文字目には区切りのスタイルを追加
-      if (j === 25) {
-        charElement.classList.add("section-end");
-      }
-
-      body.appendChild(charElement);
-    }
-
-    // Position indicator
-    const positionIndicator = document.createElement("div");
-    positionIndicator.className = "strip-position";
-    positionIndicator.textContent = `位置 ${i + 1}`;
-
-    stripElement.appendChild(header);
+    stripElement.appendChild(el("div", "actual-strip-header", stripLabel(rowIndex)));
+    const body = el("div", "actual-strip-body");
+    for (const ch of state.strips[rowIndex]) body.appendChild(el("div", "actual-strip-char first-section", ch));
     stripElement.appendChild(body);
-    stripElement.appendChild(positionIndicator);
 
+    // 位置と、キーボード・タッチで並べ替えるボタン
+    const foot = el("div", "strip-position");
+    const left = el("button", "move-btn", "◀");
+    left.type = "button";
+    left.dataset.move = String(i);
+    left.dataset.dir = "-1";
+    left.disabled = i === 0;
+    left.setAttribute("aria-label", t("frame.moveLeft", { strip: stripLabel(rowIndex), pos: i + 1 }));
+    const right = el("button", "move-btn", "▶");
+    right.type = "button";
+    right.dataset.move = String(i);
+    right.dataset.dir = "1";
+    right.disabled = i === last;
+    right.setAttribute("aria-label", t("frame.moveRight", { strip: stripLabel(rowIndex), pos: i + 1 }));
+    foot.append(left, el("span", "strip-position-num", t("frame.position", { n: i + 1 })), right);
+    stripElement.appendChild(foot);
     container.appendChild(stripElement);
-  }
-
-  // Add drag and drop functionality
+  });
   setupStripDragAndDrop(container);
+}
 
-  // Update encryption strips display
-  refreshEncStrips();
-
-  // Update plaintext warnings (max chars might have changed)
-  updatePlaintextWarnings();
+// 装着順の i 番目と j 番目を入れ替える
+function swapOrder(i, j) {
+  const order = state.frameOrder.slice();
+  [order[i], order[j]] = [order[j], order[i]];
+  setOrder(order);
 }
 
 // ---------- ドラッグ＆ドロップ ----------
@@ -813,444 +261,312 @@ let dragState = {
 };
 
 function setupStripDragAndDrop(container) {
-  // 既存のイベントリスナーをクリア（重複を避ける）
+  // リスナーは一度だけ登録する（描き直しでは要素だけ入れ替わる）
   if (dragState.dropContainer === container) return;
-
   dragState.dropContainer = container;
 
-  container.addEventListener('dragstart', (e) => {
-    const stripElement = e.target.closest('.draggable-strip');
-    if (stripElement) {
-      dragState.draggedIndex = parseInt(stripElement.dataset.stripIndex);
-      stripElement.style.opacity = '0.5';
-      e.dataTransfer.effectAllowed = 'move';
-      // データ転送に情報を保存（DOM要素に依存しない）
-      e.dataTransfer.setData('text/plain', dragState.draggedIndex.toString());
-    }
+  container.addEventListener("dragstart", (e) => {
+    const stripElement = e.target.closest(".draggable-strip");
+    if (!stripElement) return;
+    dragState.draggedIndex = parseInt(stripElement.dataset.stripIndex, 10);
+    stripElement.classList.add("dragging");
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", String(dragState.draggedIndex));
   });
 
-  container.addEventListener('dragend', (e) => {
-    const stripElement = e.target.closest('.draggable-strip');
-    if (stripElement) {
-      stripElement.style.opacity = '1';
-    }
-    // draggedIndexはリセットしない（dropで使用するため）
+  container.addEventListener("dragend", (e) => {
+    const stripElement = e.target.closest(".draggable-strip");
+    if (stripElement) stripElement.classList.remove("dragging");
   });
 
-  container.addEventListener('dragover', (e) => {
+  container.addEventListener("dragover", (e) => {
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
+    e.dataTransfer.dropEffect = "move";
   });
 
-  container.addEventListener('drop', (e) => {
+  container.addEventListener("drop", (e) => {
     e.preventDefault();
-
-    // データ転送から情報を取得
-    const transferredIndex = parseInt(e.dataTransfer.getData('text/plain'));
-    const draggedIndex = isNaN(transferredIndex) ? dragState.draggedIndex : transferredIndex;
-
-    if (draggedIndex === -1) {
-      return;
-    }
-
-    const dropTarget = e.target.closest('.draggable-strip');
-    if (!dropTarget) {
-      return;
-    }
-
-    const dropIndex = parseInt(dropTarget.dataset.stripIndex);
-
-    // 同じ要素にドロップした場合は何もしない
-    if (draggedIndex === dropIndex) {
-      dragState.draggedIndex = -1;
-      return;
-    }
-
-    // frameOrder配列の要素を入れ替え
-    const draggedRowIndex = state.frameOrder[draggedIndex];
-    const dropRowIndex = state.frameOrder[dropIndex];
-
-    state.frameOrder[draggedIndex] = dropRowIndex;
-    state.frameOrder[dropIndex] = draggedRowIndex;
-
-    // 状態をリセット
+    const transferredIndex = parseInt(e.dataTransfer.getData("text/plain"), 10);
+    const draggedIndex = Number.isNaN(transferredIndex) ? dragState.draggedIndex : transferredIndex;
     dragState.draggedIndex = -1;
-
-    // 表示を更新
-    refreshFrameView();
-  });
-}
-
-// ---------- 折りたたみ機能 ----------
-function toggleAdvancedSettings() {
-  const content = document.getElementById('advancedContent');
-  const toggle = document.getElementById('advancedToggle');
-
-  if (content.classList.contains('collapsed')) {
-    content.classList.remove('collapsed');
-    toggle.textContent = '▲';
-  } else {
-    content.classList.add('collapsed');
-    toggle.textContent = '▼';
-  }
-}
-
-// ---------- 事件（イベント） ----------
-function initBuildTab() {
-  $("#btnGenRandom").addEventListener("click", () => {
-    const n = Number($("#genCount").value) || 10;
-    state.strips = Array.from({length:n}, () => randPermutationAlphabet());
-    refreshStripsTextarea();
-    refreshActualStrips();
-    refreshFrameView();
+    const dropTarget = e.target.closest(".draggable-strip");
+    if (draggedIndex < 0 || !dropTarget) return;
+    const dropIndex = parseInt(dropTarget.dataset.stripIndex, 10);
+    if (draggedIndex === dropIndex || !(draggedIndex < state.frameOrder.length)) return;
+    swapOrder(draggedIndex, dropIndex);
   });
 
-  $("#btnGenKeyword").addEventListener("click", () => {
-    const kw = $("#keywordAlpha").value.trim();
-    if (!kw) { alert("キーワードを入力してください"); return; }
-    const n = Number($("#genCount").value) || 10;
-    const base = keyedAlphabet(kw);
-    // 1本目は base、2本目以降は base をちょい回転して変化を付ける
-    const strips = [];
-    for (let i = 0; i < n; i++) {
-      const rot = i % 26;
-      strips.push(base.slice(rot) + base.slice(0, rot));
-    }
-    state.strips = strips;
-    refreshStripsTextarea();
-    refreshActualStrips();
-    refreshFrameView();
-  });
-
-  $("#btnValidate").addEventListener("click", () => {
-    const lines = $("#stripsText").value.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-    const msgs = [];
-    lines.forEach((ln, i) => {
-      const up = ln.toUpperCase().replace(/[^A-Z]/g, "");
-      if (up.length !== 26) msgs.push(`line ${i}: 文字数=${up.length}（26である必要）`);
-      const set = new Set(up.split(""));
-      if (set.size !== 26) msgs.push(`line ${i}: 文字重複あり`);
-      for (const ch of ALPHABET) {
-        if (!set.has(ch)) msgs.push(`line ${i}: 欠落文字 ${ch}`);
-      }
-    });
-    $("#validateMsg").textContent = msgs.length ? msgs.join("\n") : "OK: 26文字×各行、重複・欠落なし";
-  });
-
-
-  $("#btnApplyStrips").addEventListener("click", () => {
-    const lines = $("#stripsText").value.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-    state.strips = lines.map(s => s.toUpperCase().replace(/[^A-Z]/g, ""));
-    // 初回は frame を先頭から使う
-    const use = Math.min(state.strips.length, Number($("#useCount").value) || 10);
-    state.frameOrder = Array.from({length: use}, (_,i)=>i);
-    refreshActualStrips();
-    refreshFrameView();
-    alert("ストリップを生成しました。");
+  // ◀ ▶ のボタン（描き直したあとも同じ向きのボタンにフォーカスを戻す）
+  container.addEventListener("click", (e) => {
+    const btn = e.target.closest(".move-btn");
+    if (!btn || btn.disabled) return;
+    const i = Number(btn.dataset.move);
+    const dir = Number(btn.dataset.dir);
+    swapOrder(i, i + dir);
+    const moved = container.querySelector(`.move-btn[data-move="${i + dir}"][data-dir="${dir}"]`);
+    const back = container.querySelector(`.move-btn[data-move="${i + dir}"][data-dir="${-dir}"]`);
+    (moved && !moved.disabled ? moved : back).focus();
   });
 }
 
 function initFrameTab() {
   $("#btnUseFirst").addEventListener("click", () => {
-    const requestedCount = Number($("#useCount").value) || 10;
-
-    if (requestedCount > state.strips.length) {
-      alert(`エラー: 使用本数(${requestedCount})が生成されたストリップ数(${state.strips.length})を超えています。\n\nストリップ作成タブで十分な数のストリップを生成してください。`);
+    const n = clampInt($("#useCount").value, 1, Core.MAX_STRIPS, 10);
+    if (n > state.strips.length) {
+      setMessage("#frameMsg", t("frame.tooMany", { use: n, count: state.strips.length }), "error");
       return;
     }
-
-    const use = Math.min(state.strips.length, requestedCount);
-    state.frameOrder = Array.from({length: use}, (_,i)=>i);
-    refreshFrameView();
+    setOrder(Core.firstOrder(n));
+    setMessage("#frameMsg", t("frame.first", { use: n }), "ok");
   });
 
   $("#btnFrameByKey").addEventListener("click", () => {
-    const key = $("#frameKey").value.trim();
-    const requestedCount = Number($("#useCount").value) || 10;
-
-    if (requestedCount > state.strips.length) {
-      alert(`エラー: 使用本数(${requestedCount})が生成されたストリップ数(${state.strips.length})を超えています。\n\nストリップ作成タブで十分な数のストリップを生成してください。`);
+    const res = Core.orderFromKeyword($("#frameKey").value, state.strips.length);
+    if (!res.ok) {
+      const key = res.reason === "empty" ? "frame.keyEmpty" : "frame.keyTooLong";
+      setMessage("#frameMsg", t(key, { length: res.letters.length, count: state.strips.length }), "error");
       return;
     }
-
-    const need = Math.min(state.strips.length, requestedCount);
-    const order = frameOrderFromKeyphrase(key, need);
-    if (!order) { alert("鍵語を入力してください"); return; }
-    state.frameOrder = order;
-    refreshFrameView();
+    setOrder(res.order);
+    setMessage("#frameMsg", t("frame.keyOk", { letters: res.letters, ranks: res.ranks.join(" "), use: res.order.length }), "ok");
   });
 
   $("#btnApplyOrder").addEventListener("click", () => {
-    const s = $("#manualOrder").value.trim();
-    if (!s) return;
-    const arr = s.split(",").map(x => Number(x.trim())).filter(x => Number.isInteger(x));
-    // 有効範囲のみに絞る
-    const valid = arr.filter(i => Number.isInteger(i) && i >= 0 && i < state.strips.length);
-    if (!valid.length) { alert("有効なインデックスがありません"); return; }
-    state.frameOrder = valid;
-    refreshFrameView();
+    const res = Core.parseOrder($("#manualOrder").value, state.strips.length);
+    if (!res.ok) {
+      const bad = (res.bad || []).join(t("sep.list"));
+      setMessage("#frameMsg", t("frame.order." + res.reason, { bad, count: state.strips.length }), "error");
+      return;
+    }
+    setOrder(res.order);
+    setMessage("#frameMsg", t("frame.orderOk", { use: res.order.length }), "ok");
   });
-
 }
 
-function autoEncrypt() {
-  try {
-    const pt = $("#plainText").value;
-    const out = simpleEncrypt(pt, { gap: state.cipherRowGapEnc });
-    $("#cipherText").value = out;
-  } catch (e) {
-    $("#cipherText").value = "Error: " + e.message;
+// ---------- 窓（26行） ----------
+// mode "enc": 群の文字を最上段（段差0）にそろえ、下の25行が段差 +1〜+25
+// mode "dec": 群の文字を最下段にそろえ、上の25行が段差 -1〜-25
+// 位置は計算部の offset から決める（画面の寸法は測らない）
+function renderWindow(container, groupLetters, mode, gap) {
+  if (!state.frameOrder.length) {
+    container.replaceChildren(el("div", "no-strips-message", t("common.noOrder")));
+    return;
   }
+  const columns = Core.windowColumns(groupLetters, state.strips, state.frameOrder, mode);
+  const baseRow = mode === "dec" ? Core.MAX_GAP : 0;
+  const gapRow = Core.rowOfGap(gap, mode);
+  const signature = state.stripsVersion + "|" + state.frameOrder.join(",") + "|" + mode;
+  let win = container.querySelector(".frame-window");
+  if (!win || win.dataset.signature !== signature) {
+    win = el("div", "frame-window " + mode);
+    win.dataset.signature = signature;
+    const labels = el("div", "fw-labels");
+    labels.appendChild(el("div", "fw-corner", t("window.gap")));
+    for (let k = 0; k < Core.SIZE; k++) {
+      if (k === baseRow) {
+        labels.appendChild(el("div", "fw-row-label is-base", t(mode === "dec" ? "window.cipherRow" : "window.plainRow")));
+        continue;
+      }
+      const g = mode === "dec" ? Core.MAX_GAP - k : k;
+      const b = el("button", "fw-row-label", gapLabel(g, mode));
+      b.type = "button";
+      b.dataset.gap = String(g);
+      b.setAttribute("aria-label", t("window.pickGap", { gap: gapLabel(g, mode) }));
+      labels.appendChild(b);
+    }
+    labels.appendChild(el("div", "fw-corner fw-corner-foot", t("window.position")));
+    const stripsBox = el("div", "fw-strips");
+    stripsBox.setAttribute("aria-hidden", "true");
+    columns.forEach((c) => {
+      const col = el("div", "fw-strip");
+      col.appendChild(el("div", "fw-head", stripLabel(c.strip)));
+      const viewport = el("div", "fw-viewport");
+      const tape = el("div", "fw-tape");
+      for (const ch of state.strips[c.strip].repeat(2)) tape.appendChild(el("div", "fw-cell", ch));
+      viewport.appendChild(tape);
+      col.append(viewport, el("div", "fw-foot", String(c.position + 1)));
+      stripsBox.appendChild(col);
+    });
+    win.append(labels, stripsBox);
+    container.replaceChildren(win);
+  }
+  // 滑らせる量（CSS 変数 --offset）と、基準の行・段差の行の印を更新する
+  const cols = win.querySelectorAll(".fw-strip");
+  columns.forEach((c, i) => {
+    const col = cols[i];
+    col.classList.toggle("is-idle", !c.letter);
+    const tape = col.querySelector(".fw-tape");
+    tape.style.setProperty("--offset", String(c.offset));
+    tape.querySelectorAll(".is-base, .is-gap").forEach((cell) => cell.classList.remove("is-base", "is-gap"));
+    if (c.letter) {
+      tape.children[c.offset + baseRow].classList.add("is-base");
+      tape.children[c.offset + gapRow].classList.add("is-gap");
+    }
+  });
+  win.querySelectorAll(".fw-row-label[data-gap]").forEach((b) => {
+    const on = Number(b.dataset.gap) === gap;
+    b.classList.toggle("is-gap", on);
+    b.setAttribute("aria-pressed", on ? "true" : "false");
+  });
+}
+
+function renderWarnings(box, items) {
+  box.replaceChildren(...items.map((w) => el("div", w.kind === "info" ? "info-message" : "warning-message", w.text)));
+}
+
+function renderGroupNav(prefix, count, index, text) {
+  $("#" + prefix + "GroupLabel").textContent = count ? t("group.label", { n: index + 1, total: count }) : t("group.none");
+  $("#" + prefix + "GroupPrev").disabled = index <= 0;
+  $("#" + prefix + "GroupNext").disabled = index >= count - 1;
+  $("#" + prefix + "GroupText").textContent = text;
+}
+
+// 入力欄のカーソルの手前の英字の数から、カーソルのある群を返す
+function groupAtCaret(textarea, r) {
+  const before = Core.lettersOnly(textarea.value.slice(0, textarea.selectionStart || 0)).length;
+  return before ? Math.floor((before - 1) / r) : 0;
+}
+
+const clampGroup = (index, count) => Math.max(0, Math.min(index, count - 1));
+
+// ---------- 暗号化タブ ----------
+function renderEnc() {
+  const raw = $("#plainText").value;
+  const letters = Core.lettersOnly(raw);
+  const r = state.frameOrder.length;
+  const gap = state.cipherRowGapEnc;
+  const warnings = [];
+  const dropped = Core.droppedChars(raw);
+  if (dropped.length) {
+    warnings.push({ kind: "warn", text: t("enc.dropped", { chars: dropped.slice(0, 8).join(" ") + (dropped.length > 8 ? " …" : "") }) });
+  }
+  let cipher = "";
+  if (!r) {
+    warnings.push({ kind: "warn", text: t("common.noOrder") });
+  } else {
+    if (letters.length > r) {
+      warnings.push({ kind: "info", text: t("enc.groups", { length: letters.length, r, groups: Math.ceil(letters.length / r), gap: gapLabel(gap, "enc") }) });
+    }
+    cipher = Core.encrypt(letters, state.strips, state.frameOrder, gap);
+  }
+  renderWarnings($("#plainTextWarnings"), warnings);
+  $("#cipherText").value = cipher;
+
+  $("#cipherOffsetValue").textContent = gapLabel(gap, "enc");
+  $("#cipherUpBtn").disabled = gap <= 1;
+  $("#cipherDownBtn").disabled = gap >= Core.MAX_GAP;
+
+  const groups = r ? Core.splitGroups(letters, r) : [];
+  state.encGroup = clampGroup(state.encGroup, groups.length);
+  const group = groups[state.encGroup] || "";
+  const text = group
+    ? t("enc.groupText", { plain: group, cipher: Core.splitGroups(cipher, r)[state.encGroup], gap: gapLabel(gap, "enc") })
+    : t("enc.groupEmpty");
+  renderGroupNav("enc", groups.length, state.encGroup, text);
+  renderWindow($("#encStripsDisplay"), group, "enc", gap);
+}
+
+function setEncGap(g) {
+  state.cipherRowGapEnc = clampInt(g, 1, Core.MAX_GAP, 1);
+  renderEnc();
 }
 
 function initEncTab() {
-  // 平文同期ボタンは削除（Encryptタブには同期なし）
-  // 平文クリア
-  const clearBtn = $("#btnClearPlain");
-  if (clearBtn) {
-    clearBtn.addEventListener("click", () => {
-      const ta = $("#plainText");
-      if (ta) {
-        ta.value = "";
-        updatePlaintextWarnings();
-        refreshEncStrips();
-        autoEncrypt();
-        showToast("平文をクリアしました");
-        ta.focus();
-      }
-    });
-  }
-  $("#btnCopyCipher").addEventListener("click", async () => {
-    try {
-      await navigator.clipboard.writeText($("#cipherText").value);
-      showToast("暗号文をコピーしました");
-    } catch (error) {
-      showToast("コピーに失敗しました");
-    }
+  $("#btnClearPlain").addEventListener("click", () => {
+    $("#plainText").value = "";
+    state.encGroup = 0;
+    renderEnc();
+    showToast(t("toast.plainCleared"));
+    $("#plainText").focus();
   });
+  $("#btnCopyCipher").addEventListener("click", () => copyText($("#cipherText").value, "toast.cipherCopied"));
 
-  // 平文入力のリアルタイム反映
+  // 平文入力のリアルタイム反映（窓はカーソルのある群を出す）
   $("#plainText").addEventListener("input", () => {
-    updatePlaintextWarnings();
-    refreshEncStrips();
-    autoEncrypt();
-    const container = $("#encStripsDisplay");
-    if (container) {
-      requestAnimationFrame(() => updateBaselinePosition(container, { mode: 'enc', gap: state.cipherRowGapEnc }));
-    }
+    state.encGroup = groupAtCaret($("#plainText"), state.frameOrder.length || 1);
+    renderEnc();
   });
 
-  // 初回実行は、ストリップが設定された後に実行
-  setTimeout(() => {
-    updatePlaintextWarnings();
-    initCipherControls();
-    autoEncrypt();
-  }, 0);
+  $("#cipherUpBtn").addEventListener("click", () => setEncGap(state.cipherRowGapEnc - 1));
+  $("#cipherDownBtn").addEventListener("click", () => setEncGap(state.cipherRowGapEnc + 1));
+  $("#encGroupPrev").addEventListener("click", () => { state.encGroup--; renderEnc(); });
+  $("#encGroupNext").addEventListener("click", () => { state.encGroup++; renderEnc(); });
+  $("#encStripsDisplay").addEventListener("click", (e) => {
+    const b = e.target.closest(".fw-row-label[data-gap]");
+    if (b) setEncGap(Number(b.dataset.gap));
+  });
 }
 
-function autoDecrypt() {
-  try {
-    const ct = $("#cipherIn").value;
-    const out = simpleDecrypt(ct);
-    $("#plainOut").value = out;
-  } catch (e) {
-    $("#plainOut").value = "Error: " + e.message;
+// ---------- 復号タブ ----------
+function renderDec() {
+  const raw = $("#cipherIn").value;
+  const letters = Core.lettersOnly(raw);
+  const r = state.frameOrder.length;
+  const gap = state.cipherRowGapDec;
+  const warnings = [];
+  const dropped = Core.droppedChars(raw);
+  if (dropped.length) {
+    warnings.push({ kind: "warn", text: t("dec.dropped", { chars: dropped.slice(0, 8).join(" ") + (dropped.length > 8 ? " …" : "") }) });
   }
+  let plain = "";
+  if (!r) {
+    warnings.push({ kind: "warn", text: t("common.noOrder") });
+  } else {
+    plain = Core.decrypt(letters, state.strips, state.frameOrder, gap);
+  }
+  renderWarnings($("#cipherInWarnings"), warnings);
+  $("#plainOut").value = plain;
+
+  $("#decCipherOffsetValue").textContent = gapLabel(gap, "dec");
+  $("#decCipherUpBtn").disabled = gap >= Core.MAX_GAP;
+  $("#decCipherDownBtn").disabled = gap <= 1;
+
+  const groups = r ? Core.splitGroups(letters, r) : [];
+  state.decGroup = clampGroup(state.decGroup, groups.length);
+  const group = groups[state.decGroup] || "";
+  const text = group
+    ? t("dec.groupText", { cipher: group, plain: Core.splitGroups(plain, r)[state.decGroup], gap: gapLabel(gap, "dec") })
+    : t("dec.groupEmpty");
+  renderGroupNav("dec", groups.length, state.decGroup, text);
+  renderWindow($("#decStripsDisplay"), group, "dec", gap);
 }
 
-function initDecCipherControls() {
-  const upBtn = $("#decCipherUpBtn");
-  const downBtn = $("#decCipherDownBtn");
-  const offsetValue = $("#decCipherOffsetValue");
-
-  if (!upBtn || upBtn._cipherControlsInitialized) return;
-  upBtn._cipherControlsInitialized = true;
-
-  function update() {
-    offsetValue.textContent = `-${state.cipherRowGapDec}`;
-    upBtn.disabled = state.cipherRowGapDec >= 25;
-    downBtn.disabled = state.cipherRowGapDec <= 1;
-    refreshDecStrips();
-    autoDecrypt();
-  }
-
-  upBtn.addEventListener('click', () => {
-    if (state.cipherRowGapDec < 25) { state.cipherRowGapDec++; update(); }
-  });
-  downBtn.addEventListener('click', () => {
-    if (state.cipherRowGapDec > 1) { state.cipherRowGapDec--; update(); }
-  });
-
-  update();
-}
-
-function refreshDecStrips() {
-  const container = $("#decStripsDisplay");
-  if (!container) return;
-  container.innerHTML = "";
-
-  if (state.frameOrder.length === 0) {
-    const message = document.createElement("div");
-    message.className = "no-strips-message";
-    message.textContent = "ストリップ設定タブでストリップを配置してください";
-    container.appendChild(message);
-    return;
-  }
-
-  const cipherText = $("#cipherIn").value;
-
-  // 各ストリップが担当する暗号文字を計算
-  const stripCipherChars = {};
-  let alphaCharIndex = 0;
-  for (let i = 0; i < cipherText.length; i++) {
-    const raw = cipherText[i].toUpperCase();
-    if (!isAlpha(raw)) continue;
-    const stripIndex = alphaCharIndex % state.frameOrder.length;
-    if (!stripCipherChars[stripIndex]) stripCipherChars[stripIndex] = [];
-    stripCipherChars[stripIndex].push({ char: raw, charIndex: alphaCharIndex, originalIndex: i });
-    alphaCharIndex++;
-  }
-
-  // ストリップを描画
-  for (let i = 0; i < state.frameOrder.length; i++) {
-    const rowIndex = state.frameOrder[i];
-    const alphabet = state.strips[rowIndex];
-    if (!alphabet) continue;
-    const actualStrip = alphabet + alphabet;
-
-    const stripElement = document.createElement("div");
-    stripElement.className = "actual-strip enc-strip-readonly";
-
-    // header
-    const header = document.createElement("div");
-    header.className = "actual-strip-header";
-    header.textContent = `#${rowIndex}`;
-
-    // body
-    const body = document.createElement("div");
-    body.className = "actual-strip-body";
-
-    // ハイライト対象（暗号文字の位置）
-    const highlightPositions = new Set();
-    const cipherChars = stripCipherChars[i];
-    let firstCipherPos = -1;
-    if (cipherChars && cipherChars.length > 0) {
-      cipherChars.forEach((info) => {
-        const pos = alphabet.indexOf(info.char);
-        if (pos >= 0) {
-          // 下半分（26..51）を優先してマーキング（基準線が下側のため）
-          const preferred = (BASELINE_ROW_INDEX_DEC >= 26 && pos + 26 < 52) ? (pos + 26) : pos;
-          highlightPositions.add(preferred);
-          if (firstCipherPos === -1) firstCipherPos = preferred;
-        }
-      });
-    }
-    stripElement.dataset.firstCipherPos = String(firstCipherPos);
-
-    for (let j = 0; j < actualStrip.length; j++) {
-      const chEl = document.createElement("div");
-      chEl.className = "actual-strip-char";
-      chEl.textContent = actualStrip[j];
-      if (j < 26) chEl.classList.add("first-section");
-      else chEl.classList.add("repeat-section");
-      if (j === 25) chEl.classList.add("section-end");
-      if (highlightPositions.has(j)) chEl.classList.add("highlight-active");
-      body.appendChild(chEl);
-    }
-
-    const positionIndicator = document.createElement("div");
-    positionIndicator.className = "strip-position";
-    positionIndicator.textContent = `位置 ${i + 1}`;
-
-    stripElement.appendChild(header);
-    stripElement.appendChild(body);
-    stripElement.appendChild(positionIndicator);
-    container.appendChild(stripElement);
-  }
-
-  // 整列とライン再描画
-  const alignAll = () => {
-    const containerRect = container.getBoundingClientRect();
-    const cs = getComputedStyle(container);
-    const padTop = parseFloat(cs.paddingTop) || 16;
-    const baselineTop = Math.round(padTop + (BASELINE_ROW_INDEX_DEC + 1) * CHAR_HEIGHT);
-
-    container.querySelectorAll('.enc-strip-readonly').forEach(strip => {
-      const body = strip.querySelector('.actual-strip-body');
-      if (!body) return;
-      let pos = parseInt(strip.dataset.firstCipherPos || '-1', 10);
-      // 初回表示など対象文字が無い場合は下半分の基準行(40行目=インデックス39)に揃える
-      if (pos < 0) pos = BASELINE_ROW_INDEX_DEC;
-      const bRect = body.getBoundingClientRect();
-      const bTopRel = bRect.top - containerRect.top;
-      const currentBottom = bTopRel + (pos + 1) * CHAR_HEIGHT;
-      const shiftAmount = Math.round(baselineTop - currentBottom);
-      strip.style.transform = `translateY(${shiftAmount}px)`;
-    });
-  };
-
-  alignAll();
-  adjustContainerHeight(container, { mode: 'dec' });
-  requestAnimationFrame(() => {
-    alignAll();
-    updateBaselinePosition(container, { mode: 'dec', gap: state.cipherRowGapDec });
-    // 初回描画でのズレ回避のため、もう一度次フレームで位置を確定
-    requestAnimationFrame(() => updateBaselinePosition(container, { mode: 'dec', gap: state.cipherRowGapDec }));
-  });
+function setDecGap(g) {
+  state.cipherRowGapDec = clampInt(g, 1, Core.MAX_GAP, 1);
+  renderDec();
 }
 
 function initDecTab() {
-  // 同期ボタン（暗号化タブの暗号文→復号タブの入力）
-  const syncBtn = $("#btnSyncCipherFromEnc");
-  if (syncBtn) {
-    syncBtn.addEventListener("click", () => {
-      const srcEl = $("#cipherText");
-      const src = srcEl ? srcEl.value : "";
-      $("#cipherIn").value = src || "";
-      refreshDecStrips();
-      autoDecrypt();
-      const container = $("#decStripsDisplay");
-      if (container) requestAnimationFrame(() => updateBaselinePosition(container, { mode: 'dec', gap: state.cipherRowGapDec }));
-      showToast("暗号化タブの暗号文を同期しました");
-    });
-  }
-
-  // 暗号文クリア
-  const clearCipherBtn = $("#btnClearCipherIn");
-  if (clearCipherBtn) {
-    clearCipherBtn.addEventListener("click", () => {
-      $("#cipherIn").value = "";
-      refreshDecStrips();
-      autoDecrypt();
-      const container = $("#decStripsDisplay");
-      if (container) requestAnimationFrame(() => updateBaselinePosition(container, { mode: 'dec', gap: state.cipherRowGapDec }));
-      showToast("暗号文をクリアしました");
-    });
-  }
-
-  $("#btnCopyPlain").addEventListener("click", async () => {
-    try {
-      await navigator.clipboard.writeText($("#plainOut").value);
-      showToast("平文（候補）をコピーしました");
-    } catch (error) {
-      showToast("コピーに失敗しました");
-    }
+  // 暗号化タブの暗号文→復号タブの入力
+  $("#btnSyncCipherFromEnc").addEventListener("click", () => {
+    $("#cipherIn").value = $("#cipherText").value;
+    state.decGroup = 0;
+    renderDec();
+    showToast(t("toast.synced"));
   });
+  $("#btnClearCipherIn").addEventListener("click", () => {
+    $("#cipherIn").value = "";
+    state.decGroup = 0;
+    renderDec();
+    showToast(t("toast.cipherCleared"));
+    $("#cipherIn").focus();
+  });
+  $("#btnCopyPlain").addEventListener("click", () => copyText($("#plainOut").value, "toast.plainCopied"));
 
   $("#cipherIn").addEventListener("input", () => {
-    refreshDecStrips();
-    autoDecrypt();
-    const container = $("#decStripsDisplay");
-    if (container) requestAnimationFrame(() => updateBaselinePosition(container, { mode: 'dec', gap: state.cipherRowGapDec }));
+    state.decGroup = groupAtCaret($("#cipherIn"), state.frameOrder.length || 1);
+    renderDec();
   });
 
-  setTimeout(() => {
-    initDecCipherControls();
-    autoDecrypt();
-  }, 0);
+  $("#decCipherUpBtn").addEventListener("click", () => setDecGap(state.cipherRowGapDec + 1));
+  $("#decCipherDownBtn").addEventListener("click", () => setDecGap(state.cipherRowGapDec - 1));
+  $("#decGroupPrev").addEventListener("click", () => { state.decGroup--; renderDec(); });
+  $("#decGroupNext").addEventListener("click", () => { state.decGroup++; renderDec(); });
+  $("#decStripsDisplay").addEventListener("click", (e) => {
+    const b = e.target.closest(".fw-row-label[data-gap]");
+    if (b) setDecGap(Number(b.dataset.gap));
+  });
 }
-
-
 
 // ---------- 初期ロード ----------
 function boot() {
@@ -1260,23 +576,8 @@ function boot() {
   initEncTab();
   initDecTab();
 
-  // 起動時にランダムストリップを生成
-  const defaultStripCount = 10;
-  state.strips = Array.from({length: defaultStripCount}, () => randPermutationAlphabet());
-  state.frameOrder = Array.from({length: defaultStripCount}, (_, i) => i);
-
-  console.log('Generated random strips:', state.strips);
-  refreshStripsTextarea();
-  refreshActualStrips();
-  refreshFrameView();
-  refreshEncStrips();
-
-  // 暗号化タブの初期設定（ストリップ設定後）
-  if ($("#plainText")) {
-    updatePlaintextWarnings();
-    autoEncrypt();
-  }
-
+  // 起動時にランダムなストリップを10本作り、先頭から並べる
+  setStrips(Core.randomStrips(10, Core.cryptoBytes));
 }
 
 document.addEventListener("DOMContentLoaded", boot);
