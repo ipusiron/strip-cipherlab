@@ -8,6 +8,7 @@ const LIMITS = [
   ["index.html", 250, 150],
   ["test/core.test.js", 160, 100], ["test/html.test.js", 160, 40], ["test/messages.test.js", 160, 20],
   ["test/contrast.test.js", 160, 30], ["test/format.test.js", 160, 10], ["test/load.js", 160, 10],
+  ["test/english.test.js", 160, 60], ["tools/build-english.mjs", 160, 30], ["tools/evaluate.mjs", 160, 40], ["js/english-data.js", 160, 50],
 ];
 
 test("最長の行と行数の下限", () => {

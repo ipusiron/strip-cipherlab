@@ -267,34 +267,42 @@ npm test
 
 ```
 strip-cipherlab/
-├── .github/                # GitHub の設定
-│   └── workflows/          # GitHub Actions のワークフロー
-│       └── test.yml        # push と pull_request で npm test を実行する
-├── assets/                 # 画像
-│   ├── screenshot.png      # スクリーンショット（暗号化タブ）
-│   ├── screenshot2.png     # スクリーンショット（復号タブ）
-│   └── screenshot3.png     # スクリーンショット（初期設定タブ）
-├── js/                     # 画面から読み込むスクリプト
-│   ├── messages.js         # 画面の文言の辞書
-│   └── strip-core.js       # 計算部（正規化・検査・鍵語の割当・暗号化・復号・窓・乱数の帯）
-├── test/                   # 自動テスト（node --test）
-│   ├── contrast.test.js    # 配色のコントラスト比
-│   ├── core.test.js        # 計算部の既知解答・往復・境界
-│   ├── format.test.js      # 行の長さ・改行コード
-│   ├── html.test.js        # index.html の静的検査（CSP・ARIA・id）
-│   ├── load.js             # テストから js/*.js を読み込む
-│   ├── messages.test.js    # 辞書のキーと script.js の文字列
-│   └── readme.test.js      # README の例・構成の検証
-├── .gitignore              # Git の除外設定
-├── .nojekyll               # GitHub Pages で Jekyll の処理を行わない
-├── AGENTS.md               # AI エージェント向けの作業指針
-├── CLAUDE.md               # Claude Code 向けの作業指針
-├── LICENSE                 # MIT ライセンス
-├── README.md               # このファイル
-├── index.html              # 画面（5つのタブ）
-├── package.json            # npm test の定義（依存なし）
-├── script.js               # 画面の制御（状態・描画・操作）
-└── style.css               # スタイルシート
+├── .github/                    # GitHub の設定
+│   └── workflows/              # GitHub Actions のワークフロー
+│       └── test.yml            # push と pull_request で npm test を実行する
+├── assets/                     # 画像
+│   ├── screenshot.png          # スクリーンショット（暗号化タブ）
+│   ├── screenshot2.png         # スクリーンショット（復号タブ）
+│   └── screenshot3.png         # スクリーンショット（初期設定タブ）
+├── js/                         # 画面から読み込むスクリプト
+│   ├── english-data.js         # 英語の隣り合う2文字の対数尤度の表（生成物）
+│   ├── messages.js             # 画面の文言の辞書
+│   └── strip-core.js           # 計算部（正規化・検査・鍵語の割当・暗号化・復号・窓・候補の点数・乱数の帯）
+├── test/                       # 自動テスト（node --test）
+│   ├── contrast.test.js        # 配色のコントラスト比
+│   ├── core.test.js            # 計算部の既知解答・往復・境界
+│   ├── english.test.js         # 英語の表・点数・候補・評価
+│   ├── format.test.js          # 行の長さ・改行コード
+│   ├── html.test.js            # index.html の静的検査（CSP・ARIA・id）
+│   ├── load.js                 # テストから js/*.js を読み込む
+│   ├── messages.test.js        # 辞書のキーと script.js の文字列
+│   └── readme.test.js          # README の例・構成の検証
+├── tools/                      # 開発用のスクリプトと英文（画面では使わない）
+│   ├── corpus/                 # 英文の抜粋（Project Gutenberg）
+│   │   ├── eval-pg98.txt       # 評価用（#98 A Tale of Two Cities）
+│   │   └── train-pg1342.txt    # 学習用（#1342 Pride and Prejudice）
+│   ├── build-english.mjs       # 学習用の英文から js/english-data.js を作る
+│   └── evaluate.mjs            # 点数の当たり方を評価用の英文で測る
+├── .gitignore                  # Git の除外設定
+├── .nojekyll                   # GitHub Pages で Jekyll の処理を行わない
+├── AGENTS.md                   # AI エージェント向けの作業指針
+├── CLAUDE.md                   # Claude Code 向けの作業指針
+├── LICENSE                     # MIT ライセンス
+├── README.md                   # このファイル
+├── index.html                  # 画面（5つのタブ）
+├── package.json                # npm test の定義（依存なし）
+├── script.js                   # 画面の制御（状態・描画・操作）
+└── style.css                   # スタイルシート
 ```
 
 ---
