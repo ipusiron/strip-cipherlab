@@ -3,11 +3,14 @@ import assert from "node:assert/strict";
 import { read } from "./load.js";
 
 // 1行に詰め込んだ（minify した）ファイルを検出する
+// js/messages.js は文章の辞書（1行に1つの文言）なので、行の上限を広げる
 const LIMITS = [
-  ["script.js", 160, 300], ["js/strip-core.js", 160, 150], ["js/messages.js", 160, 40], ["style.css", 160, 500],
+  ["script.js", 160, 300], ["js/strip-core.js", 160, 150], ["js/messages.js", 400, 300], ["style.css", 160, 500],
   ["index.html", 250, 150],
   ["test/core.test.js", 160, 100], ["test/html.test.js", 160, 40], ["test/messages.test.js", 160, 20],
   ["test/contrast.test.js", 160, 30], ["test/format.test.js", 160, 10], ["test/load.js", 160, 10],
+  ["test/english.test.js", 160, 60], ["js/i18n.js", 160, 30], ["test/i18n.test.js", 160, 30],
+  ["tools/build-english.mjs", 160, 30], ["tools/evaluate.mjs", 160, 40], ["js/english-data.js", 160, 50],
 ];
 
 test("最長の行と行数の下限", () => {

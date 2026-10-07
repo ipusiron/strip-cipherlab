@@ -4,19 +4,23 @@
  * - ストリップ初期設定（使用本数・鍵語・番号で装着順を決める）
  * - 暗号化／復号（26行の窓で、群ごとにストリップを滑らせて読む）
  * - 座学
- * 計算は js/strip-core.js（StripCore）、画面の文言は js/messages.js（StripMessages）
+ * 計算は js/strip-core.js（StripCore）、画面の文言は js/messages.js（StripMessages）、言語は js/i18n.js（StripI18n）
  * =============================== */
 
 const Core = globalThis.StripCore;
-const Messages = globalThis.StripMessages;
+const I18n = globalThis.StripI18n;
 
 // ---------- 状態 ----------
 const state = {
   strips: [],                 // ["QWERTY...", ...] 26文字各
   stripsVersion: 0,           // ストリップを作り直すたびに増やす（窓を作り直す目印）
   frameOrder: [],             // 装着順（左→右）。ストリップの添字（0始まり。画面では1始まりの番号）
-  cipherRowGapEnc: 1,         // 暗号化タブ用 段差（1〜25）
-  cipherRowGapDec: 1,         // 復号タブ用 段差（1〜25）
+  cipherRowGapEnc: 1,         // 暗号化タブ用 段差（1〜25。「全部の群で同じ」のとき）
+  encGapMode: "group",        // 暗号化の段差の決め方: "group"（群ごと）か "fixed"（全部の群で同じ）
+  encGaps: [],                // 群ごとの段差（足りない分は乱数で足す）
+  cipherRowGapDec: 1,         // 復号タブ用 段差（1〜25。「全部の群で同じ」のとき）
+  decGapMode: "group",        // 復号の段差の決め方: "group"（群ごとに選ぶ）か "fixed"（全部の群で同じ）
+  decGaps: [],                // 群ごとに選んだ段差（足りない分は1）
   encGroup: 0,                // 暗号化タブの窓に出している群（0始まり）
   decGroup: 0,                // 復号タブの窓に出している群（0始まり）
 };
@@ -24,7 +28,7 @@ const state = {
 // ---------- ユーティリティ ----------
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
-const t = (key, params) => Messages.t("ja", key, params);
+const t = (key, params) => I18n.t(key, params);
 const stripLabel = (index) => "#" + (index + 1);
 const gapLabel = (g, mode) => (mode === "dec" ? "-" : "+") + g;
 
@@ -90,6 +94,8 @@ function setStrips(strips) {
   state.strips = strips;
   state.stripsVersion++;
   state.frameOrder = Core.firstOrder(strips.length);
+  state.encGaps = [];
+  state.decGaps = [];
   state.encGroup = 0;
   state.decGroup = 0;
   $("#useCount").value = String(strips.length);
@@ -100,6 +106,8 @@ function setStrips(strips) {
 
 function setOrder(order) {
   state.frameOrder = order;
+  state.encGaps = [];
+  state.decGaps = [];
   state.encGroup = 0;
   state.decGroup = 0;
   $("#useCount").value = String(order.length);
@@ -355,7 +363,7 @@ function renderWindow(container, groupLetters, mode, gap) {
   const columns = Core.windowColumns(groupLetters, state.strips, state.frameOrder, mode);
   const baseRow = mode === "dec" ? Core.MAX_GAP : 0;
   const gapRow = Core.rowOfGap(gap, mode);
-  const signature = state.stripsVersion + "|" + state.frameOrder.join(",") + "|" + mode;
+  const signature = [state.stripsVersion, state.frameOrder.join(","), mode, I18n.getLanguage()].join("|");
   let win = container.querySelector(".frame-window");
   if (!win || win.dataset.signature !== signature) {
     win = el("div", "frame-window " + mode);
@@ -430,11 +438,23 @@ function groupAtCaret(textarea, r) {
 const clampGroup = (index, count) => Math.max(0, Math.min(index, count - 1));
 
 // ---------- 暗号化タブ ----------
+// 群ごとの段差を、群の数まで乱数で足す（今ある値は変えない）
+function ensureEncGaps(count) {
+  if (state.encGaps.length < count) state.encGaps = state.encGaps.concat(Core.randomGaps(count - state.encGaps.length, Core.cryptoBytes));
+}
+
+// 群 i の段差（決め方に従う）
+const encGapOf = (i) => (state.encGapMode === "group" ? state.encGaps[i] : state.cipherRowGapEnc);
+
 function renderEnc() {
   const raw = $("#plainText").value;
   const letters = Core.lettersOnly(raw);
   const r = state.frameOrder.length;
-  const gap = state.cipherRowGapEnc;
+  const groups = r ? Core.splitGroups(letters, r) : [];
+  const perGroup = state.encGapMode === "group";
+  ensureEncGaps(Math.max(groups.length, 1));
+  state.encGroup = clampGroup(state.encGroup, groups.length);
+  const gap = encGapOf(state.encGroup);
   const warnings = [];
   const dropped = Core.droppedChars(raw);
   if (dropped.length) {
@@ -445,9 +465,10 @@ function renderEnc() {
     warnings.push({ kind: "warn", text: t("common.noOrder") });
   } else {
     if (letters.length > r) {
-      warnings.push({ kind: "info", text: t("enc.groups", { length: letters.length, r, groups: Math.ceil(letters.length / r), gap: gapLabel(gap, "enc") }) });
+      const params = { length: letters.length, r, groups: groups.length, gap: gapLabel(gap, "enc") };
+      warnings.push({ kind: "info", text: t(perGroup ? "enc.groupsPerGroup" : "enc.groupsFixed", params) });
     }
-    cipher = Core.encrypt(letters, state.strips, state.frameOrder, gap);
+    cipher = Core.encrypt(letters, state.strips, state.frameOrder, perGroup ? state.encGaps : state.cipherRowGapEnc);
   }
   renderWarnings($("#plainTextWarnings"), warnings);
   $("#cipherText").value = cipher;
@@ -455,9 +476,12 @@ function renderEnc() {
   $("#cipherOffsetValue").textContent = gapLabel(gap, "enc");
   $("#cipherUpBtn").disabled = gap <= 1;
   $("#cipherDownBtn").disabled = gap >= Core.MAX_GAP;
+  $("#btnRerollGaps").hidden = !perGroup;
+  // 群ごとの段差の控え（送り手のメモ。受け手には知らせない）
+  $("#encGapList").textContent = perGroup && groups.length
+    ? t("enc.gapList", { list: groups.map((_, i) => gapLabel(state.encGaps[i], "enc")).join(" ") })
+    : "";
 
-  const groups = r ? Core.splitGroups(letters, r) : [];
-  state.encGroup = clampGroup(state.encGroup, groups.length);
   const group = groups[state.encGroup] || "";
   const text = group
     ? t("enc.groupText", { plain: group, cipher: Core.splitGroups(cipher, r)[state.encGroup], gap: gapLabel(gap, "enc") })
@@ -466,8 +490,15 @@ function renderEnc() {
   renderWindow($("#encStripsDisplay"), group, "enc", gap);
 }
 
+// 段差を変える（群ごとのときは窓に出している群の段差だけ）
 function setEncGap(g) {
-  state.cipherRowGapEnc = clampInt(g, 1, Core.MAX_GAP, 1);
+  const v = clampInt(g, 1, Core.MAX_GAP, 1);
+  if (state.encGapMode === "group") {
+    ensureEncGaps(state.encGroup + 1);
+    state.encGaps[state.encGroup] = v;
+  } else {
+    state.cipherRowGapEnc = v;
+  }
   renderEnc();
 }
 
@@ -487,8 +518,17 @@ function initEncTab() {
     renderEnc();
   });
 
-  $("#cipherUpBtn").addEventListener("click", () => setEncGap(state.cipherRowGapEnc - 1));
-  $("#cipherDownBtn").addEventListener("click", () => setEncGap(state.cipherRowGapEnc + 1));
+  $("#cipherUpBtn").addEventListener("click", () => setEncGap(encGapOf(state.encGroup) - 1));
+  $("#cipherDownBtn").addEventListener("click", () => setEncGap(encGapOf(state.encGroup) + 1));
+  $$("input[name=encGapMode]").forEach((radio) => radio.addEventListener("change", () => {
+    state.encGapMode = radio.value;
+    renderEnc();
+  }));
+  $("#btnRerollGaps").addEventListener("click", () => {
+    state.encGaps = [];
+    renderEnc();
+    showToast(t("toast.gapsRerolled"));
+  });
   $("#encGroupPrev").addEventListener("click", () => { state.encGroup--; renderEnc(); });
   $("#encGroupNext").addEventListener("click", () => { state.encGroup++; renderEnc(); });
   $("#encStripsDisplay").addEventListener("click", (e) => {
@@ -498,11 +538,52 @@ function initEncTab() {
 }
 
 // ---------- 復号タブ ----------
+const ENGLISH = () => globalThis.StripEnglish.bigram;
+const SHORT_GROUP = 8; // これより短い群は点数の1位が外れやすい（tools/evaluate.mjs: 5文字で1位約70%、8文字で約93%）
+const scoreLabel = (score) => (score === null ? t("cand.noScore") : score.toFixed(2));
+
+function ensureDecGaps(count) {
+  while (state.decGaps.length < count) state.decGaps.push(1);
+}
+
+// 群 i の段差（決め方に従う）
+const decGapOf = (i) => (state.decGapMode === "group" ? state.decGaps[i] : state.cipherRowGapDec);
+
+// 候補の表（群ごと: その群の25行／全部の群で同じ: 全文の25通り）。描き直してもフォーカスを同じ段差に戻す
+function renderCandidates(cands, selectedGap, title, note) {
+  $("#candTitle").textContent = title;
+  renderWarnings($("#candNote"), note ? [{ kind: "info", text: note }] : []);
+  const body = $("#candBody");
+  const active = document.activeElement;
+  const focused = active && body.contains(active) ? Number(active.dataset.gap) : 0;
+  body.replaceChildren(...cands.map((c) => {
+    const tr = el("tr", c.gap === selectedGap ? "is-selected" : "");
+    const btn = el("button", "cand-btn mono", c.text.length > 60 ? c.text.slice(0, 60) + "…" : c.text);
+    btn.type = "button";
+    btn.dataset.gap = String(c.gap);
+    btn.setAttribute("aria-pressed", c.gap === selectedGap ? "true" : "false");
+    btn.setAttribute("aria-label", t("cand.pick", { gap: gapLabel(c.gap, "dec"), rank: c.rank, score: scoreLabel(c.score) }));
+    const textCell = el("td", "cand-text");
+    textCell.appendChild(btn);
+    tr.append(el("td", "cand-rank", t("cand.rank", { n: c.rank })), el("td", "cand-gap mono", gapLabel(c.gap, "dec")),
+      textCell, el("td", "cand-score mono", scoreLabel(c.score)));
+    return tr;
+  }));
+  if (focused) {
+    const again = body.querySelector(`.cand-btn[data-gap="${focused}"]`);
+    if (again) again.focus();
+  }
+}
+
 function renderDec() {
   const raw = $("#cipherIn").value;
   const letters = Core.lettersOnly(raw);
   const r = state.frameOrder.length;
-  const gap = state.cipherRowGapDec;
+  const groups = r ? Core.splitGroups(letters, r) : [];
+  const perGroup = state.decGapMode === "group";
+  ensureDecGaps(Math.max(groups.length, 1));
+  state.decGroup = clampGroup(state.decGroup, groups.length);
+  const gap = decGapOf(state.decGroup);
   const warnings = [];
   const dropped = Core.droppedChars(raw);
   if (dropped.length) {
@@ -512,7 +593,7 @@ function renderDec() {
   if (!r) {
     warnings.push({ kind: "warn", text: t("common.noOrder") });
   } else {
-    plain = Core.decrypt(letters, state.strips, state.frameOrder, gap);
+    plain = Core.decrypt(letters, state.strips, state.frameOrder, perGroup ? state.decGaps : state.cipherRowGapDec);
   }
   renderWarnings($("#cipherInWarnings"), warnings);
   $("#plainOut").value = plain;
@@ -520,20 +601,55 @@ function renderDec() {
   $("#decCipherOffsetValue").textContent = gapLabel(gap, "dec");
   $("#decCipherUpBtn").disabled = gap >= Core.MAX_GAP;
   $("#decCipherDownBtn").disabled = gap <= 1;
+  $("#btnAutoGaps").disabled = !groups.length;
+  $("#decGapList").textContent = perGroup && groups.length
+    ? t("dec.gapList", { list: groups.map((_, i) => gapLabel(state.decGaps[i], "dec")).join(" ") })
+    : "";
 
-  const groups = r ? Core.splitGroups(letters, r) : [];
-  state.decGroup = clampGroup(state.decGroup, groups.length);
   const group = groups[state.decGroup] || "";
+  let cands = [];
+  if (group) {
+    cands = perGroup
+      ? Core.rankCandidates(group, state.strips, state.frameOrder, ENGLISH())
+      : Core.rankFixedCandidates(letters, state.strips, state.frameOrder, ENGLISH());
+  }
+  const picked = cands.find((c) => c.gap === gap);
+  const title = !group ? t("cand.titleEmpty") : t(perGroup ? "cand.titleGroup" : "cand.titleFixed", { n: state.decGroup + 1 });
+  const note = perGroup && group && group.length < SHORT_GROUP ? t("cand.short", { n: group.length }) : "";
+  renderCandidates(cands, gap, title, note);
+
+  const plainGroup = r ? Core.splitGroups(plain, r)[state.decGroup] || "" : "";
   const text = group
-    ? t("dec.groupText", { cipher: group, plain: Core.splitGroups(plain, r)[state.decGroup], gap: gapLabel(gap, "dec") })
+    ? t("dec.groupText", { cipher: group, plain: plainGroup, gap: gapLabel(gap, "dec"),
+      score: scoreLabel(Core.englishScore(plainGroup, ENGLISH())), rank: picked ? picked.rank : "-" })
     : t("dec.groupEmpty");
   renderGroupNav("dec", groups.length, state.decGroup, text);
   renderWindow($("#decStripsDisplay"), group, "dec", gap);
 }
 
+// 段差を変える（群ごとのときは窓に出している群の段差だけ）
 function setDecGap(g) {
-  state.cipherRowGapDec = clampInt(g, 1, Core.MAX_GAP, 1);
+  const v = clampInt(g, 1, Core.MAX_GAP, 1);
+  if (state.decGapMode === "group") {
+    ensureDecGaps(state.decGroup + 1);
+    state.decGaps[state.decGroup] = v;
+  } else {
+    state.cipherRowGapDec = v;
+  }
   renderDec();
+}
+
+// 点数1位の段差を選ぶ（群ごと: 各群の1位／全部の群で同じ: 全文の1位）
+function autoGaps() {
+  const letters = Core.lettersOnly($("#cipherIn").value);
+  if (!letters || !state.frameOrder.length) return;
+  if (state.decGapMode === "group") {
+    state.decGaps = Core.bestGaps(letters, state.strips, state.frameOrder, ENGLISH());
+  } else {
+    state.cipherRowGapDec = Core.rankFixedCandidates(letters, state.strips, state.frameOrder, ENGLISH())[0].gap;
+  }
+  renderDec();
+  showToast(t("toast.autoGaps"));
 }
 
 function initDecTab() {
@@ -541,12 +657,14 @@ function initDecTab() {
   $("#btnSyncCipherFromEnc").addEventListener("click", () => {
     $("#cipherIn").value = $("#cipherText").value;
     state.decGroup = 0;
+    state.decGaps = [];
     renderDec();
     showToast(t("toast.synced"));
   });
   $("#btnClearCipherIn").addEventListener("click", () => {
     $("#cipherIn").value = "";
     state.decGroup = 0;
+    state.decGaps = [];
     renderDec();
     showToast(t("toast.cipherCleared"));
     $("#cipherIn").focus();
@@ -558,8 +676,17 @@ function initDecTab() {
     renderDec();
   });
 
-  $("#decCipherUpBtn").addEventListener("click", () => setDecGap(state.cipherRowGapDec + 1));
-  $("#decCipherDownBtn").addEventListener("click", () => setDecGap(state.cipherRowGapDec - 1));
+  $("#decCipherUpBtn").addEventListener("click", () => setDecGap(decGapOf(state.decGroup) + 1));
+  $("#decCipherDownBtn").addEventListener("click", () => setDecGap(decGapOf(state.decGroup) - 1));
+  $$("input[name=decGapMode]").forEach((radio) => radio.addEventListener("change", () => {
+    state.decGapMode = radio.value;
+    renderDec();
+  }));
+  $("#btnAutoGaps").addEventListener("click", autoGaps);
+  $("#candBody").addEventListener("click", (e) => {
+    const b = e.target.closest(".cand-btn");
+    if (b) setDecGap(Number(b.dataset.gap));
+  });
   $("#decGroupPrev").addEventListener("click", () => { state.decGroup--; renderDec(); });
   $("#decGroupNext").addEventListener("click", () => { state.decGroup++; renderDec(); });
   $("#decStripsDisplay").addEventListener("click", (e) => {
@@ -568,8 +695,24 @@ function initDecTab() {
   });
 }
 
+// ---------- 言語 ----------
+function initLanguage() {
+  const nav = globalThis.navigator || {};
+  I18n.use(I18n.initialLanguage(globalThis.location.search, I18n.readSaved(), nav.languages || [nav.language]), document);
+  $("#langBtn").addEventListener("click", () => {
+    const next = I18n.getLanguage() === "ja" ? "en" : "ja";
+    I18n.save(next);
+    I18n.use(next, document);
+    // 前の言語で出した一時的な状態表示は消し、全タブを描き直す
+    for (const id of ["#genMsg", "#validateMsg", "#frameMsg"]) setMessage(id, "");
+    refreshActualStrips();
+    renderOrderViews();
+  });
+}
+
 // ---------- 初期ロード ----------
 function boot() {
+  initLanguage();
   initTabs();
   initBuildTab();
   initFrameTab();

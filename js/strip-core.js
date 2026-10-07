@@ -208,6 +208,59 @@
     return mode === "dec" ? MAX_GAP - g : g;
   }
 
+  // ---------- 英語らしさの点数と復号の候補 ----------
+  // table は log P(後の文字 | 前の文字) の 26×26（行＝前の文字。js/english-data.js）。
+  // 点数は隣り合う2文字の対数尤度の平均（0に近いほど英語らしい）。英字が2文字未満なら null
+
+  function englishScore(text, table) {
+    const s = lettersOnly(text);
+    if (s.length < 2) return null;
+    let sum = 0;
+    for (let i = 1; i < s.length; i++) sum += table[(s.charCodeAt(i - 1) - 65) * SIZE + s.charCodeAt(i) - 65];
+    return sum / (s.length - 1);
+  }
+
+  // 点数の高い順（null は最後）、同点は段差の小さい順に並べ、rank（1始まり）を付ける
+  function sortCandidates(list) {
+    const sorted = list.slice().sort((a, b) => {
+      if (a.score === null || b.score === null) return (a.score === null) - (b.score === null) || a.gap - b.gap;
+      return b.score - a.score || a.gap - b.gap;
+    });
+    sorted.forEach((c, i) => { c.rank = i + 1; });
+    return sorted;
+  }
+
+  // 1つの群の復号の候補: 段差 1〜25 の行（窓の行を横に読んだもの）と点数
+  function rankCandidates(groupLetters, strips, order, table) {
+    const cols = windowColumns(groupLetters, strips, order, "dec");
+    const list = [];
+    for (let g = 1; g <= MAX_GAP; g++) {
+      const text = windowRow(cols, rowOfGap(g, "dec"));
+      list.push({ gap: g, text, score: englishScore(text, table) });
+    }
+    return sortCandidates(list);
+  }
+
+  // 全部の群で同じ段差のときの候補: 全文を段差 1〜25 で復号した文と点数
+  function rankFixedCandidates(cipherText, strips, order, table) {
+    const list = [];
+    for (let g = 1; g <= MAX_GAP; g++) {
+      const text = decrypt(cipherText, strips, order, g);
+      list.push({ gap: g, text, score: englishScore(text, table) });
+    }
+    return sortCandidates(list);
+  }
+
+  // 群ごとに点数1位の段差
+  function bestGaps(cipherText, strips, order, table) {
+    return splitGroups(lettersOnly(cipherText), order.length).map((grp) => rankCandidates(grp, strips, order, table)[0].gap);
+  }
+
+  // 1〜25 の段差を count 個（偏りのない乱数）
+  function randomGaps(count, bytesFn) {
+    return Array.from({ length: count }, () => randomIndex(MAX_GAP, bytesFn) + 1);
+  }
+
   // ---------- 乱数の帯 ----------
 
   // 余りの偏りを除いて [0, n) の整数を1つ返す。bytesFn(count) は Uint8Array を返す乱数源。n は 1..256
@@ -280,6 +333,7 @@
     rankKeyword, orderFromKeyword, firstOrder, parseOrder, isValidOrder,
     gapFor, encrypt, decrypt, splitGroups,
     windowColumns, windowRow, rowOfGap,
+    englishScore, sortCandidates, rankCandidates, rankFixedCandidates, bestGaps, randomGaps,
     randomIndex, shuffleAlphabet, randomStrip, randomStrips, cryptoBytes,
     fnv1a32, mulberry32, normalizePassphrase, passphraseStrip, passphraseStrips,
   };

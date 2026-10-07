@@ -11,18 +11,21 @@
 </head>
 <body>
   <header>
-    <h1>Strip CipherLab</h1>
-    <p class="subtitle">ストリップ暗号の仕組みを視覚的に学べる対話型教育ツール</p>
+    <div class="header-text">
+      <h1>Strip CipherLab</h1>
+      <p class="subtitle" data-i18n="html.subtitle">ストリップ暗号の仕組みを視覚的に学べる対話型教育ツール</p>
+    </div>
+    <button id="langBtn" type="button" class="lang-button" data-i18n="html.langButton" data-i18n-attr="aria-label:html.langLabel" aria-label="英語に切り替える">EN</button>
   </header>
 
-  <noscript><p class="noscript">このツールは JavaScript を使います。ブラウザーの設定で JavaScript を有効にしてください。</p></noscript>
+  <noscript><p class="noscript">このツールはJavaScriptを使います。ブラウザーの設定でJavaScriptを有効にしてください。 / This tool needs JavaScript. Please enable it in your browser.</p></noscript>
 
-  <nav class="tabs" role="tablist" aria-label="手順">
-    <button type="button" class="tab-btn active" id="tab-build" data-tab="build" role="tab" aria-selected="true" aria-controls="build">ストリップ作成</button>
-    <button type="button" class="tab-btn" id="tab-frame" data-tab="frame" role="tab" aria-selected="false" aria-controls="frame" tabindex="-1">ストリップ初期設定</button>
-    <button type="button" class="tab-btn" id="tab-enc" data-tab="enc" role="tab" aria-selected="false" aria-controls="enc" tabindex="-1">暗号化</button>
-    <button type="button" class="tab-btn" id="tab-dec" data-tab="dec" role="tab" aria-selected="false" aria-controls="dec" tabindex="-1">復号</button>
-    <button type="button" class="tab-btn" id="tab-study" data-tab="study" role="tab" aria-selected="false" aria-controls="study" tabindex="-1">座学</button>
+  <nav class="tabs" role="tablist" aria-label="手順" data-i18n-attr="aria-label:html.tablist">
+    <button type="button" class="tab-btn active" id="tab-build" data-tab="build" role="tab" aria-selected="true" aria-controls="build" data-i18n="html.tab.build">ストリップ作成</button>
+    <button type="button" class="tab-btn" id="tab-frame" data-tab="frame" role="tab" aria-selected="false" aria-controls="frame" tabindex="-1" data-i18n="html.tab.frame">ストリップ初期設定</button>
+    <button type="button" class="tab-btn" id="tab-enc" data-tab="enc" role="tab" aria-selected="false" aria-controls="enc" tabindex="-1" data-i18n="html.tab.enc">暗号化</button>
+    <button type="button" class="tab-btn" id="tab-dec" data-tab="dec" role="tab" aria-selected="false" aria-controls="dec" tabindex="-1" data-i18n="html.tab.dec">復号</button>
+    <button type="button" class="tab-btn" id="tab-study" data-tab="study" role="tab" aria-selected="false" aria-controls="study" tabindex="-1" data-i18n="html.tab.study">座学</button>
   </nav>
 
   <main>
@@ -33,31 +36,31 @@
         <div class="build-top-row">
           <!-- 生成設定エリア -->
           <div class="card generation-settings">
-            <h2>ストリップ生成</h2>
+            <h2 data-i18n="html.build.h2Gen">ストリップ生成</h2>
             <div class="row">
-              <label for="genCount">本数（1〜100）:</label>
+              <label for="genCount" data-i18n="html.build.count">本数（1〜100）：</label>
               <input id="genCount" type="number" min="1" max="100" value="10" inputmode="numeric" />
-              <button id="btnGenRandom" type="button" class="primary">ランダム生成</button>
+              <button id="btnGenRandom" type="button" class="primary" data-i18n="html.build.btnRandom">ランダム生成</button>
             </div>
             <div class="row">
-              <label for="passphrase">合言葉:</label>
-              <input id="passphrase" type="text" placeholder="例: STRIP" autocomplete="off" spellcheck="false" />
-              <button id="btnGenPassphrase" type="button">合言葉から生成</button>
+              <label for="passphrase" data-i18n="html.build.passphrase">合言葉：</label>
+              <input id="passphrase" type="text" placeholder="例：STRIP" autocomplete="off" spellcheck="false" data-i18n-attr="placeholder:html.build.passPlaceholder" />
+              <button id="btnGenPassphrase" type="button" data-i18n="html.build.btnPass">合言葉から生成</button>
             </div>
             <div class="note">
-              ・ランダム生成は、A〜Z を偏りのない乱数（crypto.getRandomValues）で並べ替えた乱字列を、本数分作ります。<br />
-              ・合言葉から生成は、同じ合言葉と本数から、いつも同じストリップの一式を作ります（送り手と受け手がストリップをそろえる練習用）。決まった手順の擬似乱数なので、合言葉を推測されるとストリップも再現されます。大文字と小文字は区別します。
+              <p data-i18n="html.build.note1">・ランダム生成は、A〜Zを偏りのない乱数（crypto.getRandomValues）で並べ替えた乱字列を、本数分作ります。</p>
+              <p data-i18n="html.build.note2">・合言葉から生成は、同じ合言葉と本数から、いつも同じストリップの一式を作ります（送り手と受け手がストリップをそろえる練習用）。決まった手順の擬似乱数なので、合言葉を推測されるとストリップも再現されます。大文字と小文字は区別します。</p>
             </div>
             <div id="genMsg" class="msg" role="status" aria-live="polite"></div>
           </div>
 
           <!-- 乱字列編集エリア -->
           <div class="card alphabet-editing">
-            <h2><label for="stripsText">ストリップの乱字列（1行1本）</label></h2>
+            <h2><label for="stripsText" data-i18n="html.build.h2Text">ストリップの乱字列（1行1本）</label></h2>
             <textarea id="stripsText" rows="10" spellcheck="false" autocomplete="off"></textarea>
             <div class="btn-row">
-              <button id="btnValidate" type="button">重複・欠落チェック</button>
-              <button id="btnApplyStrips" type="button" class="primary">この乱字列でストリップを作る</button>
+              <button id="btnValidate" type="button" data-i18n="html.build.btnValidate">重複・欠落チェック</button>
+              <button id="btnApplyStrips" type="button" class="primary" data-i18n="html.build.btnApply">この乱字列でストリップを作る</button>
             </div>
             <div id="validateMsg" class="msg mono small" role="status" aria-live="polite"></div>
           </div>
@@ -65,8 +68,8 @@
 
         <!-- 実際のストリップ表示エリア -->
         <div class="card actual-strips">
-          <h2>生成されたストリップ（52文字ずつ）</h2>
-          <p class="hint">各ストリップは26文字の乱字列を2回続けた52文字です（端で止まらずに上下へ滑らせるため）</p>
+          <h2 data-i18n="html.build.h2Strips">生成されたストリップ（52文字ずつ）</h2>
+          <p class="hint" data-i18n="html.build.hintStrips">各ストリップは26文字の乱字列を2回続けた52文字です（端で止まらずに上下へ滑らせるため）</p>
           <div id="actualStripsContainer" class="actual-strips-container"></div>
         </div>
       </div>
@@ -76,30 +79,30 @@
     <section id="frame" class="tab-panel" role="tabpanel" aria-labelledby="tab-frame">
       <div class="frame-layout">
         <div class="card frame-settings">
-          <h2>装着順の決め方</h2>
+          <h2 data-i18n="html.frame.h2">装着順の決め方</h2>
           <div class="row">
-            <label for="useCount">使用本数（先頭から）:</label>
+            <label for="useCount" data-i18n="html.frame.useCount">使用本数（先頭から）：</label>
             <input id="useCount" type="number" min="1" max="100" value="10" inputmode="numeric" />
-            <button id="btnUseFirst" type="button">先頭から採用</button>
+            <button id="btnUseFirst" type="button" data-i18n="html.frame.btnFirst">先頭から採用</button>
           </div>
           <div class="row">
-            <label for="frameKey">鍵語（文字数＝使用本数）:</label>
-            <input id="frameKey" type="text" placeholder="例: The strip cipher" autocomplete="off" spellcheck="false" />
-            <button id="btnFrameByKey" type="button">鍵語から決める</button>
+            <label for="frameKey" data-i18n="html.frame.key">鍵語（文字数＝使用本数）：</label>
+            <input id="frameKey" type="text" placeholder="例：The strip cipher" autocomplete="off" spellcheck="false" data-i18n-attr="placeholder:html.frame.keyPlaceholder" />
+            <button id="btnFrameByKey" type="button" data-i18n="html.frame.btnKey">鍵語から決める</button>
           </div>
           <div class="row">
-            <label for="manualOrder">ストリップ番号を並べる（カンマ区切り）:</label>
-            <input id="manualOrder" type="text" placeholder="例: 3, 1, 2" autocomplete="off" />
-            <button id="btnApplyOrder" type="button">この順にする</button>
+            <label for="manualOrder" data-i18n="html.frame.manual">ストリップ番号を並べる（カンマ区切り）：</label>
+            <input id="manualOrder" type="text" placeholder="例：3, 1, 2" autocomplete="off" data-i18n-attr="placeholder:html.frame.manualPlaceholder" />
+            <button id="btnApplyOrder" type="button" data-i18n="html.frame.btnOrder">この順にする</button>
           </div>
           <div id="frameMsg" class="msg" role="status" aria-live="polite"></div>
-          <p class="mono small">現在の装着順（左から、ストリップ番号）: <span id="frameOrderView"></span></p>
+          <p class="mono small"><span data-i18n="html.frame.current">現在の装着順（左から、ストリップ番号）：</span><span id="frameOrderView"></span></p>
         </div>
 
         <!-- メインのストリップ配置エリア -->
         <div class="card main-strips">
-          <h2>ストリップ配置</h2>
-          <p class="hint">ストリップをドラッグするか、◀ ▶ のボタンで並べ替えられます</p>
+          <h2 data-i18n="html.frame.h2Strips">ストリップ配置</h2>
+          <p class="hint" data-i18n="html.frame.hintStrips">ストリップをドラッグするか、◀ ▶ のボタンで並べ替えられます</p>
           <div id="offsetTable" class="strips-container"></div>
         </div>
       </div>
@@ -110,40 +113,47 @@
       <div class="enc-simple-layout">
         <div class="card plain-input-card">
           <div class="plain-input-header">
-            <h2><label for="plainText">平文</label></h2>
+            <h2><label for="plainText" data-i18n="html.enc.h2Plain">平文</label></h2>
             <div class="header-actions">
-              <button id="btnClearPlain" type="button" class="copy-button">クリア</button>
+              <button id="btnClearPlain" type="button" class="copy-button" data-i18n="html.enc.btnClear">クリア</button>
             </div>
           </div>
-          <textarea id="plainText" rows="3" placeholder="平文を入力（英字だけを使います）" spellcheck="false"></textarea>
+          <textarea id="plainText" rows="3" placeholder="平文を入力（英字だけを使います）" spellcheck="false" data-i18n-attr="placeholder:html.enc.plainPlaceholder"></textarea>
           <div id="plainTextWarnings" class="warnings" aria-live="polite"></div>
         </div>
 
         <div class="card cipher-output-card">
           <div class="cipher-output-header">
-            <h2><label for="cipherText">暗号文</label></h2>
-            <button id="btnCopyCipher" type="button" class="copy-button">コピー</button>
+            <h2><label for="cipherText" data-i18n="html.enc.h2Cipher">暗号文</label></h2>
+            <button id="btnCopyCipher" type="button" class="copy-button" data-i18n="html.enc.btnCopy">コピー</button>
           </div>
-          <textarea id="cipherText" rows="3" readonly placeholder="暗号文がここに表示されます"></textarea>
+          <textarea id="cipherText" rows="3" readonly placeholder="暗号文がここに表示されます" data-i18n-attr="placeholder:html.enc.cipherPlaceholder"></textarea>
         </div>
       </div>
 
       <div class="card enc-strips">
         <div class="enc-strips-header">
-          <h2>使用中のストリップ配置</h2>
+          <h2 data-i18n="html.enc.h2Window">使用中のストリップ配置</h2>
           <div class="cipher-line-controls-header">
-            <span class="cipher-offset-label">段差: <output id="cipherOffsetValue">+1</output></span>
-            <button id="cipherUpBtn" type="button" class="cipher-control-btn" aria-label="暗号文の行を1段上へ（段差を1減らす）">▲</button>
-            <button id="cipherDownBtn" type="button" class="cipher-control-btn" aria-label="暗号文の行を1段下へ（段差を1増やす）">▼</button>
+            <span class="cipher-offset-label"><span data-i18n="html.gapLabel">段差：</span><output id="cipherOffsetValue">+1</output></span>
+            <button id="cipherUpBtn" type="button" class="cipher-control-btn" aria-label="暗号文の行を1段上へ（段差を1減らす）" data-i18n-attr="aria-label:html.enc.upAria">▲</button>
+            <button id="cipherDownBtn" type="button" class="cipher-control-btn" aria-label="暗号文の行を1段下へ（段差を1増やす）" data-i18n-attr="aria-label:html.enc.downAria">▼</button>
           </div>
         </div>
+        <fieldset class="gap-mode">
+          <legend data-i18n="html.gapModeLegend">段差の決め方</legend>
+          <label><input type="radio" name="encGapMode" value="group" checked /><span data-i18n="html.enc.modeGroup">群ごとに変える（実際の運用）</span></label>
+          <label><input type="radio" name="encGapMode" value="fixed" /><span data-i18n="html.modeFixed">全部の群で同じ</span></label>
+          <button id="btnRerollGaps" type="button" data-i18n="html.enc.btnReroll">段差を振り直す</button>
+        </fieldset>
+        <p id="encGapList" class="gap-list mono" aria-live="polite"></p>
         <div class="group-nav">
-          <button id="encGroupPrev" type="button" class="group-btn" aria-label="前の群">◀</button>
+          <button id="encGroupPrev" type="button" class="group-btn" aria-label="前の群" data-i18n-attr="aria-label:html.prevGroup">◀</button>
           <span id="encGroupLabel" class="group-label"></span>
-          <button id="encGroupNext" type="button" class="group-btn" aria-label="次の群">▶</button>
+          <button id="encGroupNext" type="button" class="group-btn" aria-label="次の群" data-i18n-attr="aria-label:html.nextGroup">▶</button>
           <span id="encGroupText" class="group-text mono" aria-live="polite"></span>
         </div>
-        <p class="hint">平文の文字が最上段（段差0）にそろうようストリップを滑らせ、段差の行（青）を横に読むと暗号文になります。左の行番号を押しても段差を選べます。</p>
+        <p class="hint" data-i18n="html.enc.hintWindow">平文の文字が最上段（段差0）にそろうようストリップを滑らせ、段差の行（青）を横に読むと暗号文になります。左の行番号を押しても段差を選べます。</p>
         <div id="encStripsDisplay" class="frame-window-wrap"></div>
       </div>
     </section>
@@ -153,73 +163,103 @@
       <div class="enc-simple-layout">
         <div class="card cipher-input-card">
           <div class="cipher-input-header">
-            <h2><label for="cipherIn">暗号文</label></h2>
+            <h2><label for="cipherIn" data-i18n="html.dec.h2Cipher">暗号文</label></h2>
             <div class="header-actions">
-              <button id="btnSyncCipherFromEnc" type="button" class="copy-button">暗号化タブから写す</button>
-              <button id="btnClearCipherIn" type="button" class="copy-button">クリア</button>
+              <button id="btnSyncCipherFromEnc" type="button" class="copy-button" data-i18n="html.dec.btnSync">暗号化タブから写す</button>
+              <button id="btnClearCipherIn" type="button" class="copy-button" data-i18n="html.dec.btnClear">クリア</button>
             </div>
           </div>
-          <textarea id="cipherIn" rows="3" placeholder="暗号文を入力（英字以外は無視）" spellcheck="false"></textarea>
+          <textarea id="cipherIn" rows="3" placeholder="暗号文を入力（英字以外は無視）" spellcheck="false" data-i18n-attr="placeholder:html.dec.cipherPlaceholder"></textarea>
           <div id="cipherInWarnings" class="warnings" aria-live="polite"></div>
         </div>
 
         <div class="card cipher-output-card">
           <div class="cipher-output-header">
-            <h2><label for="plainOut">平文（候補）</label></h2>
-            <button id="btnCopyPlain" type="button" class="copy-button">コピー</button>
+            <h2><label for="plainOut" data-i18n="html.dec.h2Plain">平文（候補）</label></h2>
+            <button id="btnCopyPlain" type="button" class="copy-button" data-i18n="html.dec.btnCopy">コピー</button>
           </div>
-          <textarea id="plainOut" rows="3" readonly placeholder="段差を操作して読める平文を探します"></textarea>
+          <textarea id="plainOut" rows="3" readonly placeholder="段差を操作して読める平文を探します" data-i18n-attr="placeholder:html.dec.plainPlaceholder"></textarea>
         </div>
       </div>
 
       <div class="card enc-strips">
         <div class="enc-strips-header">
-          <h2>使用中のストリップ配置（復号）</h2>
+          <h2 data-i18n="html.dec.h2Window">使用中のストリップ配置（復号）</h2>
           <div class="cipher-line-controls-header">
-            <span class="cipher-offset-label">段差: <output id="decCipherOffsetValue">-1</output></span>
-            <button id="decCipherUpBtn" type="button" class="cipher-control-btn" aria-label="平文候補の行を1段上へ（段差を1増やす）">▲</button>
-            <button id="decCipherDownBtn" type="button" class="cipher-control-btn" aria-label="平文候補の行を1段下へ（段差を1減らす）">▼</button>
+            <span class="cipher-offset-label"><span data-i18n="html.gapLabel">段差：</span><output id="decCipherOffsetValue">-1</output></span>
+            <button id="decCipherUpBtn" type="button" class="cipher-control-btn" aria-label="平文候補の行を1段上へ（段差を1増やす）" data-i18n-attr="aria-label:html.dec.upAria">▲</button>
+            <button id="decCipherDownBtn" type="button" class="cipher-control-btn" aria-label="平文候補の行を1段下へ（段差を1減らす）" data-i18n-attr="aria-label:html.dec.downAria">▼</button>
           </div>
         </div>
+        <fieldset class="gap-mode">
+          <legend data-i18n="html.gapModeLegend">段差の決め方</legend>
+          <label><input type="radio" name="decGapMode" value="group" checked /><span data-i18n="html.dec.modeGroup">群ごとに選ぶ</span></label>
+          <label><input type="radio" name="decGapMode" value="fixed" /><span data-i18n="html.modeFixed">全部の群で同じ</span></label>
+          <button id="btnAutoGaps" type="button" class="primary" data-i18n="html.dec.btnAuto">点数1位を選ぶ（自動推定）</button>
+        </fieldset>
+        <p id="decGapList" class="gap-list mono" aria-live="polite"></p>
         <div class="group-nav">
-          <button id="decGroupPrev" type="button" class="group-btn" aria-label="前の群">◀</button>
+          <button id="decGroupPrev" type="button" class="group-btn" aria-label="前の群" data-i18n-attr="aria-label:html.prevGroup">◀</button>
           <span id="decGroupLabel" class="group-label"></span>
-          <button id="decGroupNext" type="button" class="group-btn" aria-label="次の群">▶</button>
+          <button id="decGroupNext" type="button" class="group-btn" aria-label="次の群" data-i18n-attr="aria-label:html.nextGroup">▶</button>
           <span id="decGroupText" class="group-text mono" aria-live="polite"></span>
         </div>
-        <p class="hint">暗号文の文字が最下段にそろうようストリップを滑らせると、その上の25行が平文の候補（段差 -1〜-25）です。行を横に読み、読める行を探してください。</p>
-        <div id="decStripsDisplay" class="frame-window-wrap"></div>
+        <div class="dec-body">
+          <section class="cand-panel" aria-labelledby="candTitle">
+            <h3 id="candTitle" data-i18n="cand.titleEmpty">候補の行</h3>
+            <p class="hint" data-i18n="html.cand.hint">点数は、英語で隣り合う2文字の出やすさ（自然対数）の平均です。0に近いほど英語らしい行です。行を押すと、その段差を選びます。</p>
+            <div id="candNote" class="warnings" aria-live="polite"></div>
+            <div class="table-wrap">
+              <table class="cand-table">
+                <thead>
+                  <tr>
+                    <th scope="col" data-i18n="html.cand.thRank">順位</th>
+                    <th scope="col" data-i18n="html.cand.thGap">段差</th>
+                    <th scope="col" data-i18n="html.cand.thText">候補</th>
+                    <th scope="col" data-i18n="html.cand.thScore">点数</th>
+                  </tr>
+                </thead>
+                <tbody id="candBody"></tbody>
+              </table>
+            </div>
+          </section>
+          <div class="dec-window">
+            <p class="hint" data-i18n="html.dec.hintWindow">暗号文の文字が最下段にそろうようストリップを滑らせると、その上の25行が平文の候補（段差-1〜-25）です。行を横に読み、読める行を探してください。</p>
+            <div id="decStripsDisplay" class="frame-window-wrap"></div>
+          </div>
+        </div>
       </div>
     </section>
 
     <!-- 座学 -->
     <section id="study" class="tab-panel" role="tabpanel" aria-labelledby="tab-study">
       <article class="card">
-        <h2>概要</h2>
-        <p>ストリップ暗号は、ランダム順のアルファベットを印字した帯（ストリップ）を多数並べ、平文行とは別の行を暗号文として読み出す換字式暗号です。</p>
-        <h3>手順</h3>
+        <h2 data-i18n="html.study.h2">概要</h2>
+        <p data-i18n="html.study.p">ストリップ暗号は、ランダム順のアルファベットを印字した帯（ストリップ）を多数並べ、平文行とは別の行を暗号文として読み出す換字式暗号です。</p>
+        <h3 data-i18n="html.study.h3Steps">手順</h3>
         <ol>
-          <li>平文を使用本数 r 文字ずつの群に分ける。</li>
-          <li>群の文字が1行（段差0）にそろうよう、装着順のストリップを上下に滑らせる。</li>
-          <li>ほかの25行から1行を選んで暗号文にする（段差）。受け手には段差を知らせない。</li>
-          <li>受け手は暗号文を1行にそろえ、ほかの25行を横に読んで、読める行を平文として採用する。</li>
+          <li data-i18n="html.study.step1">平文を使用本数r文字ずつの群に分ける。</li>
+          <li data-i18n="html.study.step2">群の文字が1行（段差0）にそろうよう、装着順のストリップを上下に滑らせる。</li>
+          <li data-i18n="html.study.step3">ほかの25行から1行を選んで暗号文にする（段差）。受け手には段差を知らせない。</li>
+          <li data-i18n="html.study.step4">受け手は暗号文を1行にそろえ、ほかの25行を横に読んで、読める行を平文として採用する。</li>
         </ol>
-        <h3>重要ポイント</h3>
+        <h3 data-i18n="html.study.h3Points">重要ポイント</h3>
         <ul>
-          <li>段差は群ごとに変える。全部の群で同じ段差を使うと、周期 r の多表式換字に退化し、周期ごとの一致指数（IC）で r が見えてくる。このツールの暗号化は、全部の群に同じ段差を使う。</li>
-          <li>段差は1〜25なので、平文の文字が同じ文字に暗号化されることはない。解読の手がかりにもなる性質である。</li>
-          <li>ストリップは輪になっていないので、26文字を2回続けて印字し、端で止まらずにそろえられるようにする。</li>
-          <li>滑らせると同じ並びになる2本は、同じストリップとして働く（区別できる並びは 25! 通り）。</li>
-          <li>鍵語による装着順（アルファベット順の割当、同じ文字は左から若い番号）は一例で、ほかの割当もある。</li>
+          <li data-i18n="html.study.point1">段差は群ごとに変える。全部の群で同じ段差を使うと、周期rの多表式換字に退化し、周期ごとの一致指数（IC）でrが見えてくる。暗号化タブの「段差の決め方」で、群ごとに変えるか、全部の群で同じにするかを選べる。</li>
+          <li data-i18n="html.study.point2">復号では、群ごとに25の候補の行を英語らしさの点数で並べられる。群が短いと、偶然に英語らしく見える外れの行が1位になることがある。</li>
+          <li data-i18n="html.study.point3">段差は1〜25なので、平文の文字が同じ文字に暗号化されることはない。解読の手がかりにもなる性質である。</li>
+          <li data-i18n="html.study.point4">ストリップは輪になっていないので、26文字を2回続けて印字し、端で止まらずにそろえられるようにする。</li>
+          <li data-i18n="html.study.point5">滑らせると同じ並びになる2本は、同じストリップとして働く（区別できる並びは25!通り）。</li>
+          <li data-i18n="html.study.point6">鍵語による装着順（アルファベット順の割当、同じ文字は左から若い番号）は一例で、ほかの割当もある。</li>
         </ul>
-        <h3>歴史</h3>
+        <h3 data-i18n="html.study.h3History">歴史</h3>
         <ul>
-          <li>ジェファソンのホイール暗号とバゼリーの円筒を帯の形に伸ばしたもので、1914年にパーカー・ヒットが提案した。</li>
-          <li>米陸軍の M-138-A は100本から30本を使い、国務省も1930年代末から最も重要な通信に使った。</li>
-          <li>ドイツ外務省の解読部門は、国務省のストリップ暗号 O-2 の50本と40通りの日鍵を復元した（TICOM I-89）。</li>
-          <li>日本はウェーク島とキスカで米海軍のストリップを手に入れ解読を試みたが、特務班は最後に事実上解けないものとみなした。</li>
+          <li data-i18n="html.study.hist1">ジェファソンのホイール暗号とバゼリーの円筒を帯の形に伸ばしたもので、1914年にパーカー・ヒットが提案した。</li>
+          <li data-i18n="html.study.hist2">米陸軍のM-138-Aは100本から30本を使い、国務省も1930年代末から最も重要な通信に使った。</li>
+          <li data-i18n="html.study.hist3">ドイツ外務省の解読部門は、国務省のストリップ暗号O-2の50本と40通りの日鍵を復元した（TICOM I-89）。</li>
+          <li data-i18n="html.study.hist4">日本はウェーク島とキスカで米海軍のストリップを手に入れ解読を試みたが、特務班は最後に事実上解けないものとみなした。</li>
         </ul>
-        <p class="hint">出典は README の「歴史メモ」と「参考文献」にある（Kahn『The Codebreakers』、TICOM I-89）。</p>
+        <p class="hint" data-i18n="html.study.source">出典はREADMEの「歴史メモ」と「参考文献」にある（Kahn『The Codebreakers』、TICOM I-89）。</p>
       </article>
     </section>
 
@@ -227,14 +267,16 @@
 
   <footer>
     <div class="footer">
-      🔗 GitHubリポジトリはこちら（ <a href="https://github.com/ipusiron/strip-cipherlab" target="_blank" rel="noopener noreferrer">ipusiron/strip-cipherlab</a> ）
+      <span data-i18n="html.footer.repo">🔗 GitHubリポジトリ：</span><a href="https://github.com/ipusiron/strip-cipherlab" target="_blank" rel="noopener noreferrer">ipusiron/strip-cipherlab</a>
     </div>
   </footer>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script src="./js/strip-core.js"></script>
+  <script src="./js/english-data.js"></script>
   <script src="./js/messages.js"></script>
+  <script src="./js/i18n.js"></script>
   <script src="./script.js"></script>
 </body>
 </html>
