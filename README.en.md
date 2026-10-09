@@ -224,6 +224,12 @@ In this tool, the number of letters in the keyword becomes the number of strips 
 
 ## 🎯 Use cases
 
+Ways of using this tool in particular
+
+- Confirming that a short passphrase can rebuild the same set (key-distribution classes): from the passphrase STRIP you build 5 strips whose 26-letter orders are derived by a fixed procedure, so the same passphrase always gives the same set. With strip order 4 5 3 1 2, encrypting the plaintext ATTACKATDAWNMEETATTHEOLDMILL with offset +7 gives GQFQPIOFNGXWZVQZOFDNKUONKCDO. Share only the short passphrase and both sides can build the same key material at hand. It is an example of deriving key material from a short secret (key derivation), and at the same time it shows the weakness that guessing the passphrase reproduces the whole set
+- Confirming that the right answer is not first in a small sample (statistics and cryptanalysis classes): ranking the decryption candidates of the first ciphertext group GQFQP by an English-likeness score puts the wrong ODETH (score -2.37) first and the correct ATTAC (score -2.76) second, because statistics are shaky over 5 letters. If you know every group uses the same offset, you can decrypt the whole message at each offset and read the scores, and the correct offset 7 (score -2.81) comes first. You can confirm on the same ciphertext that the right answer emerges as the sample grows
+- Confirming that offsets 1 to 25 never encipher a letter as itself (combinatorics and cipher properties): the offset runs from 1 to 25 and never includes 0, so at any offset from 1 to 25 no plaintext letter becomes the same letter in the ciphertext. Encrypting AAAAA at any offset never produces an A. It is a concrete example of a mapping with no fixed point, which you can set beside how the same property gave codebreakers a foothold against the Enigma in the Second World War
+
 - Computing and history classes: students slide strips in the window to follow the line from the Jefferson cylinder to the M-138-A, and see by hand that the cylinder and the strips are the same mechanism in different forms
 - Self-study of cryptography: enter the passphrase, keyword, and plaintext of the worked example, move the offset one step at a time, and watch how the ciphertext changes and why no letter is enciphered as itself
 - Puzzle and escape-room design: make a set of strips from a passphrase and print the mixed alphabets as paper strips. Players line up the strips and look for the row that reads

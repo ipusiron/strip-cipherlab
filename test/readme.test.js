@@ -277,3 +277,26 @@ test("段差を固定したときの弱さ: 周期ごとのICの表（日英）�
     for (let k = 2; k <= 20; k++) assert.ok(periodicIC(per, k) < 0.058, `trial ${t} period ${k}`);
   }
 });
+
+test('ユースケースの「このツールならではの使い方」の暗号文・順位・性質は計算部と同じ（日英）', () => {
+  const T = load('js/english-data.js').StripEnglish.bigram;
+  const strips = C.passphraseStrips('STRIP', 5);
+  const order = C.orderFromKeyword('STRIP', 5).order;
+  const cipher = C.encrypt('ATTACKATDAWNMEETATTHEOLDMILL', strips, order, [7]);
+  assert.equal(cipher, 'GQFQPIOFNGXWZVQZOFDNKUONKCDO');
+  assert.deepEqual(C.passphraseStrips('STRIP', 5), strips);
+  for (const text of [readme, readmeEn]) assert.ok(text.includes(cipher));
+  const ranked = C.rankCandidates('GQFQP', strips, order, T);
+  const row = (word) => ranked.findIndex((r) => r.text === word) + 1;
+  assert.deepEqual([ranked[0].text, ranked[0].score.toFixed(2)], ['ODETH', '-2.37']);
+  assert.equal(row('ATTAC'), 2);
+  assert.equal(ranked[row('ATTAC') - 1].score.toFixed(2), '-2.76');
+  const whole = C.rankFixedCandidates(cipher, strips, order, T);
+  assert.deepEqual([whole[0].gap, whole[0].score.toFixed(2)], [7, '-2.81']);
+  assert.ok(readme.includes('ODETH（点数-2.37）') && readme.includes('ATTAC（点数-2.76）') && readme.includes('段差7（点数-2.81）'));
+  assert.ok(readmeEn.includes('ODETH (score -2.37)') && readmeEn.includes('ATTAC (score -2.76)') && readmeEn.includes('offset 7 (score -2.81)'));
+  let fixed = false;
+  for (let gap = 1; gap <= 25; gap++) if ([...C.encrypt('AAAAA', strips, order, [gap])].some((c) => c === 'A')) fixed = true;
+  assert.equal(fixed, false);
+  assert.ok(readme.includes('AAAAAをどの段差で暗号化してもAは現れない') && readmeEn.includes('Encrypting AAAAA at any offset never produces an A'));
+});
